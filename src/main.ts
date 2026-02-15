@@ -9,6 +9,7 @@ async function bootstrap() {
     whitelist: true,
     transform: true,
   }));
-  await app.listen(process.env.PORT ?? 3001);
+  await app.enableCors(); // Ensure CORS is enabled if needed, moved up or checked. Actually it's already there.
+  await app.listen(process.env.PORT ?? 3001, '0.0.0.0');
 }
 bootstrap();
