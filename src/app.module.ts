@@ -8,12 +8,14 @@ import { OrdersModule } from './orders/orders.module';
 import { AuthModule } from './auth/auth.module';
 import { FilesModule } from './files/files.module';
 import { AddressesModule } from './addresses/addresses.module';
+import { CategoriesModule } from './categories/categories.module';
 
 @Module({
   imports: [ProductsModule, PrismaModule, UsersModule, OrdersModule,
     AuthModule,
     FilesModule,
-    AddressesModule
+    AddressesModule,
+    CategoriesModule
   ],
   controllers: [AppController],
 

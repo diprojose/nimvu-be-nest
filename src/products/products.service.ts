@@ -12,6 +12,7 @@ export class ProductsService {
     return this.prisma.product.create({
       data: {
         ...productData,
+        categoryId: createProductDto.categoryId, // Save categoryId
         variants: {
           create: variants,
         },

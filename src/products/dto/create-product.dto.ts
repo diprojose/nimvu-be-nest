@@ -47,6 +47,29 @@ export class CreateProductDto {
   @IsOptional()
   images?: string[];
 
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  height?: number;
+
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  width?: number;
+
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  length?: number;
+
+  @IsString()
+  @IsOptional()
+  longDescription?: string;
+
+  @IsString()
+  @IsOptional()
+  categoryId?: string;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateVariantDto)
