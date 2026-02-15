@@ -23,14 +23,14 @@ export class ProductsService {
 
   findAll() {
     return this.prisma.product.findMany({
-      include: { variants: true },
+      include: { variants: true, category: true },
     });
   }
 
   findOne(id: string) {
     return this.prisma.product.findUnique({
       where: { id },
-      include: { variants: true },
+      include: { variants: true, category: true },
     });
   }
 

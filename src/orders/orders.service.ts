@@ -1,11 +1,15 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Inject } from '@nestjs/common';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mailService: MailService
+  ) { }
 
   async create(createOrderDto: CreateOrderDto) {
     const { userId, items, paymentId, shippingAddress } = createOrderDto;
@@ -15,7 +19,7 @@ export class OrdersService {
     if (!user) throw new NotFoundException('User not found');
 
     // 2. Transaction: Validate Stock -> Calculate Total -> Create Order -> Decrement Stock
-    return this.prisma.$transaction(async (tx) => {
+    const order = await this.prisma.$transaction(async (tx) => {
       let total = 0;
       const orderItemsData: { productId: string; quantity: number; price: number; variantId?: string }[] = [];
       // 2. Validate Items & Calculate Total
@@ -84,6 +88,12 @@ export class OrdersService {
         include: { items: true },
       });
     });
+
+    // Send emails
+    this.mailService.sendOrderConfirmation(user, order);
+    this.mailService.sendAdminOrderAlert(order);
+
+    return order;
   }
 
   findAll(userId?: string) {

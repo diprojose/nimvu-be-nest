@@ -9,13 +9,15 @@ import { AuthModule } from './auth/auth.module';
 import { FilesModule } from './files/files.module';
 import { AddressesModule } from './addresses/addresses.module';
 import { CategoriesModule } from './categories/categories.module';
+import { MailModule } from './mail/mail.module';
 
 @Module({
   imports: [ProductsModule, PrismaModule, UsersModule, OrdersModule,
     AuthModule,
     FilesModule,
     AddressesModule,
-    CategoriesModule
+    CategoriesModule,
+    MailModule
   ],
   controllers: [AppController],
 
