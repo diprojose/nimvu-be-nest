@@ -1,12 +1,12 @@
-import { IsArray, IsNotEmpty, IsNumber, IsOptional, IsString, Min, ValidateNested } from 'class-validator';
+import { IsArray, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Min, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 
-class CreateVariantDto {
+export class CreateVariantDto {
   @IsString()
   @IsNotEmpty()
   name: string;
 
-  @IsNumber()
+  @IsInt()
   @Min(0)
   stock: number;
 
@@ -32,13 +32,17 @@ export class CreateProductDto {
 
   @IsString()
   @IsOptional()
+  slug?: string;
+
+  @IsString()
+  @IsOptional()
   description?: string;
 
   @IsNumber()
   @Min(0)
   price: number;
 
-  @IsNumber()
+  @IsInt()
   @Min(0)
   stock: number;
 

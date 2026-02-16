@@ -1,4 +1,18 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { CreateProductDto } from './create-product.dto';
+import { IsArray, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+import { PartialType, OmitType } from '@nestjs/mapped-types';
+import { CreateProductDto, CreateVariantDto } from './create-product.dto';
 
-export class UpdateProductDto extends PartialType(CreateProductDto) { }
+class UpdateVariantDto extends PartialType(CreateVariantDto) {
+  @IsString()
+  @IsOptional()
+  id?: string;
+}
+
+export class UpdateProductDto extends PartialType(OmitType(CreateProductDto, ['variants'] as const)) {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => UpdateVariantDto)
+  @IsOptional()
+  variants?: UpdateVariantDto[];
+}

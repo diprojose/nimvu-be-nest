@@ -8,9 +8,23 @@ export class CategoriesService {
   constructor(private readonly prisma: PrismaService) { }
 
   create(createCategoryDto: CreateCategoryDto) {
+    const slug = this.slugify(createCategoryDto.slug || createCategoryDto.name);
     return this.prisma.category.create({
-      data: createCategoryDto,
+      data: {
+        ...createCategoryDto,
+        slug,
+      },
     });
+  }
+
+  private slugify(text: string): string {
+    return text
+      .toString()
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, '-')     // Replace spaces with -
+      .replace(/[^\w-]+/g, '')  // Remove all non-word chars
+      .replace(/--+/g, '-');    // Replace multiple - with single -
   }
 
   findAll() {
@@ -31,10 +45,22 @@ export class CategoriesService {
   }
 
   async update(id: string, updateCategoryDto: UpdateCategoryDto) {
-    await this.findOne(id);
+    const category = await this.findOne(id);
+
+    let slug = updateCategoryDto.slug;
+
+    if (slug) {
+      slug = this.slugify(slug);
+    } else if (!category.slug) {
+      slug = this.slugify(updateCategoryDto.name || category.name);
+    }
+
     return this.prisma.category.update({
       where: { id },
-      data: updateCategoryDto,
+      data: {
+        ...updateCategoryDto,
+        ...(slug && { slug }),
+      },
     });
   }
 

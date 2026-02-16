@@ -10,6 +10,7 @@ import { FilesModule } from './files/files.module';
 import { AddressesModule } from './addresses/addresses.module';
 import { CategoriesModule } from './categories/categories.module';
 import { MailModule } from './mail/mail.module';
+import { CollectionsModule } from './collections/collections.module';
 
 @Module({
   imports: [ProductsModule, PrismaModule, UsersModule, OrdersModule,
@@ -17,7 +18,8 @@ import { MailModule } from './mail/mail.module';
     FilesModule,
     AddressesModule,
     CategoriesModule,
-    MailModule
+    MailModule,
+    CollectionsModule
   ],
   controllers: [AppController],
 
