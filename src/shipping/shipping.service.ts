@@ -43,31 +43,55 @@ export class ShippingService {
   }
 
   async calculate(country: string, state?: string, city?: string) {
-    // 1. Try City match
-    if (city && state) {
+    const targetCity = city ? city.trim() : null;
+    const targetState = state ? state.trim() : null;
+
+    // 1. Try City match (Exact match on Country + State + City)
+    if (targetCity && targetState) {
       const cityRate = await this.prisma.shippingRate.findFirst({
-        where: { country, state, city },
+        where: {
+          country: { equals: country, mode: 'insensitive' },
+          state: { equals: targetState, mode: 'insensitive' },
+          city: { equals: targetCity, mode: 'insensitive' }
+        },
       });
       if (cityRate) return cityRate;
     }
 
-    // 2. Try State match
-    if (state) {
+    // 2. Try State match (City is null OR empty string)
+    if (targetState) {
       const stateRate = await this.prisma.shippingRate.findFirst({
-        where: { country, state, city: null },
+        where: {
+          country: { equals: country, mode: 'insensitive' },
+          state: { equals: targetState, mode: 'insensitive' },
+          OR: [
+            { city: null },
+            { city: '' }
+          ]
+        },
       });
       if (stateRate) return stateRate;
     }
 
-    // 3. Try Country match
+    // 3. Try Country match (State & City are null OR empty string)
     const countryRate = await this.prisma.shippingRate.findFirst({
-      where: { country, state: null, city: null },
+      where: {
+        country: { equals: country, mode: 'insensitive' },
+        OR: [
+          { state: null },
+          { state: '' }
+        ],
+        AND: {
+          OR: [
+            { city: null },
+            { city: '' }
+          ]
+        }
+      },
     });
 
     if (countryRate) return countryRate;
 
-    // 4. Default or Error?
-    // For now, return specific error or null so frontend handles it
     throw new NotFoundException('No shipping rate found for this location');
   }
 }
