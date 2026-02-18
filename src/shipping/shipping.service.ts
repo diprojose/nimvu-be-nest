@@ -8,12 +8,12 @@ export class ShippingService {
   constructor(private readonly prisma: PrismaService) { }
 
   create(createShippingDto: CreateShippingDto) {
-    const data = { ...createShippingDto };
-    if (!data.state) data.state = null;
-    if (!data.city) data.city = null;
-
     return this.prisma.shippingRate.create({
-      data,
+      data: {
+        ...createShippingDto,
+        state: createShippingDto.state || null,
+        city: createShippingDto.city || null,
+      },
     });
   }
 
@@ -28,7 +28,7 @@ export class ShippingService {
   }
 
   update(id: string, updateShippingDto: UpdateShippingDto) {
-    const data = { ...updateShippingDto };
+    const data: any = { ...updateShippingDto };
     if (data.state === '') data.state = null;
     if (data.city === '') data.city = null;
 
