@@ -37,6 +37,17 @@ export class CollectionsService {
     return collection;
   }
 
+  async findBySlug(slug: string) {
+    const collection = await this.prisma.collection.findUnique({
+      where: { slug },
+      include: { products: true },
+    });
+    if (!collection) {
+      throw new NotFoundException(`Collection with slug ${slug} not found`);
+    }
+    return collection;
+  }
+
   async update(id: string, updateCollectionDto: UpdateCollectionDto) {
     const { productIds, ...data } = updateCollectionDto;
     return this.prisma.collection.update({
