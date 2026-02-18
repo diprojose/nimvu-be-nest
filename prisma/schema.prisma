@@ -54,7 +54,33 @@ model Product {
   categoryId  String?
   category    Category?   @relation(fields: [categoryId], references: [id])
   collections Collection[]
+  discountPrice Float?
+  discounts   Discount[]
 }
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
+model Discount {
+  id          String       @id @default(uuid())
+  name        String
+  code        String?      @unique // Null for campaigns, present for coupons
+  type        DiscountType
+  value       Float
+  startDate   DateTime
+  endDate     DateTime
+  isActive    Boolean      @default(true)
+  usageLimit  Int?         // Max uses for coupons
+  usedCount   Int          @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  products    Product[]
+  collections Collection[]
+}
+
+
 
 model Collection {
   id          String    @id @default(uuid())
@@ -64,6 +90,7 @@ model Collection {
   isActive    Boolean   @default(true)
   slug        String    @unique
   products    Product[]
+  discounts   Discount[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 }
@@ -128,4 +155,16 @@ model Category {
   products    Product[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+}
+
+model ShippingRate {
+  id        String   @id @default(uuid())
+  country   String
+  state     String?
+  city      String?
+  price     Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([country, state, city]) // Ensure no duplicate rules for the same location combo
 }

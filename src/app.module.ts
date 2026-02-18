@@ -11,6 +11,8 @@ import { AddressesModule } from './addresses/addresses.module';
 import { CategoriesModule } from './categories/categories.module';
 import { MailModule } from './mail/mail.module';
 import { CollectionsModule } from './collections/collections.module';
+import { DiscountsModule } from './discounts/discounts.module';
+import { ShippingModule } from './shipping/shipping.module';
 
 @Module({
   imports: [ProductsModule, PrismaModule, UsersModule, OrdersModule,
@@ -19,7 +21,9 @@ import { CollectionsModule } from './collections/collections.module';
     AddressesModule,
     CategoriesModule,
     MailModule,
-    CollectionsModule
+    CollectionsModule,
+    DiscountsModule,
+    ShippingModule
   ],
   controllers: [AppController],
 
