@@ -13,6 +13,7 @@ import { MailModule } from './mail/mail.module';
 import { CollectionsModule } from './collections/collections.module';
 import { DiscountsModule } from './discounts/discounts.module';
 import { ShippingModule } from './shipping/shipping.module';
+import { WompiModule } from './wompi/wompi.module';
 
 @Module({
   imports: [ProductsModule, PrismaModule, UsersModule, OrdersModule,
@@ -23,7 +24,8 @@ import { ShippingModule } from './shipping/shipping.module';
     MailModule,
     CollectionsModule,
     DiscountsModule,
-    ShippingModule
+    ShippingModule,
+    WompiModule
   ],
   controllers: [AppController],
 
