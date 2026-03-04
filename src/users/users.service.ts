@@ -11,7 +11,7 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mailService: MailService,
-  ) {}
+  ) { }
 
   async create(createUserDto: CreateUserDto) {
     const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
@@ -36,6 +36,7 @@ export class UsersService {
         email: true,
         name: true,
         role: true,
+        isB2BApproved: true,
         createdAt: true,
         updatedAt: true,
       },

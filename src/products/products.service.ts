@@ -1,11 +1,12 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { BulkB2BPricesDto } from './dto/bulk-b2b-prices.dto';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   private slugify(text: string): string {
     return text
@@ -38,7 +39,7 @@ export class ProductsService {
 
   findAll() {
     return this.prisma.product.findMany({
-      include: { variants: true, category: true },
+      include: { variants: true, category: true, b2bPrices: true },
     });
   }
 
@@ -51,7 +52,7 @@ export class ProductsService {
 
     return this.prisma.product.findUnique({
       where,
-      include: { variants: true, category: true },
+      include: { variants: true, category: true, b2bPrices: true },
     });
   }
 
@@ -113,6 +114,51 @@ export class ProductsService {
     } catch (error) {
       console.error('Error updating product:', error);
       throw new InternalServerErrorException(error.message);
+    }
+  }
+  async updateB2BPricesBulk(bulkDto: BulkB2BPricesDto) {
+    try {
+      return await this.prisma.$transaction(async (prisma) => {
+        let updatedCount = 0;
+
+        for (const item of bulkDto.prices) {
+          // Check if product exists first to avoid foreign key errors
+          const product = await prisma.product.findUnique({
+            where: { id: item.productId }
+          });
+
+          if (!product) continue;
+
+          // Clear existing prices for this product to prevent stale data
+          await prisma.b2BPrice.deleteMany({
+            where: { productId: item.productId }
+          });
+
+          // Create new ones based on the valid payload
+          const b2bPricesToCreate: { productId: string; minQuantity: number; price: number; isActive: boolean; }[] = [];
+          if (item.price12 && item.price12 > 0) {
+            b2bPricesToCreate.push({ productId: item.productId, minQuantity: 12, price: item.price12, isActive: item.isActive });
+          }
+          if (item.price50 && item.price50 > 0) {
+            b2bPricesToCreate.push({ productId: item.productId, minQuantity: 50, price: item.price50, isActive: item.isActive });
+          }
+          if (item.price100 && item.price100 > 0) {
+            b2bPricesToCreate.push({ productId: item.productId, minQuantity: 100, price: item.price100, isActive: item.isActive });
+          }
+
+          if (b2bPricesToCreate.length > 0) {
+            await prisma.b2BPrice.createMany({
+              data: b2bPricesToCreate
+            });
+            updatedCount++;
+          }
+        }
+
+        return { success: true, message: `Updated B2B prices for ${updatedCount} products.` };
+      });
+    } catch (error) {
+      console.error('Error updating bulk B2B prices:', error);
+      throw new InternalServerErrorException('Failed to process bulk upload.');
     }
   }
 

@@ -5,11 +5,13 @@ import {
   MinLength,
   IsEnum,
   IsOptional,
+  IsBoolean,
 } from 'class-validator';
 
 export enum Role {
   USER = 'USER',
   ADMIN = 'ADMIN',
+  B2B = 'B2B',
 }
 
 export class CreateUserDto {
@@ -29,4 +31,8 @@ export class CreateUserDto {
   @IsEnum(Role)
   @IsOptional()
   role?: Role;
+
+  @IsBoolean()
+  @IsOptional()
+  isB2BApproved?: boolean;
 }

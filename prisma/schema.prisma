@@ -11,6 +11,7 @@ datasource db {
 enum Role {
   USER
   ADMIN
+  B2B
 }
 
 enum PaymentMethod {
@@ -27,41 +28,46 @@ enum OrderStatus {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  name      String?
-  role      Role     @default(USER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  orders    Order[]
-  addresses Address[]
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password      String
+  name          String?
+  role          Role      @default(USER)
+  // B2B Specifics
+  companyName   String?
+  taxId         String?
+  isB2BApproved Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  orders        Order[]
+  addresses     Address[]
 }
 
 model Product {
-  id          String      @id @default(uuid())
-  name        String
-  description String?
-  price       Float
-  stock       Int
-  images      String[]
+  id              String       @id @default(uuid())
+  name            String
+  description     String?
+  price           Float
+  stock           Int
+  images          String[]
   // Dimensions
-  height      Float?
-  width       Float?
-  length      Float?
+  height          Float?
+  width           Float?
+  length          Float?
   // Rich Text Description
   longDescription String? // @db.Text is implied for String in Prisma unless specified otherwise, but for Postgres String is text.
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  slug        String?     @unique
-  variants    Variant[]
-  orderItems  OrderItem[]
-  categoryId  String?
-  category    Category?   @relation(fields: [categoryId], references: [id])
-  collections Collection[]
-  discountPrice Float?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  slug            String?      @unique
+  variants        Variant[]
+  orderItems      OrderItem[]
+  categoryId      String?
+  category        Category?    @relation(fields: [categoryId], references: [id])
+  collections     Collection[]
+  b2bPrices       B2BPrice[]
+  discountPrice   Float?
   discountEndDate DateTime?
-  discounts   Discount[]
+  discounts       Discount[]
 }
 
 enum DiscountType {
@@ -78,7 +84,7 @@ model Discount {
   startDate   DateTime
   endDate     DateTime
   isActive    Boolean      @default(true)
-  usageLimit  Int?         // Max uses for coupons
+  usageLimit  Int? // Max uses for coupons
   usedCount   Int          @default(0)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
@@ -86,57 +92,55 @@ model Discount {
   collections Collection[]
 }
 
-
-
 model Collection {
-  id          String    @id @default(uuid())
-  name        String    @unique
+  id          String     @id @default(uuid())
+  name        String     @unique
   description String?
   image       String?
-  isActive    Boolean   @default(true)
-  slug        String    @unique
+  isActive    Boolean    @default(true)
+  slug        String     @unique
   products    Product[]
   discounts   Discount[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 }
 
 model Variant {
-  id        String      @id @default(uuid())
-  productId String
-  product   Product     @relation(fields: [productId], references: [id])
-  name      String
-  stock     Int
-  price     Float?
-  images    String[]
-  sku       String      @unique
+  id         String      @id @default(uuid())
+  productId  String
+  product    Product     @relation(fields: [productId], references: [id])
+  name       String
+  stock      Int
+  price      Float?
+  images     String[]
+  sku        String      @unique
   orderItems OrderItem[]
 }
 
 model Order {
-  id        String      @id @default(uuid())
-  userId    String
-  user      User        @relation(fields: [userId], references: [id])
-  status    OrderStatus @default(PENDING)
-  total     Float
-  paymentId String?     @unique
-  paymentMethod PaymentMethod @default(WOMPI)
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  id              String        @id @default(uuid())
+  userId          String
+  user            User          @relation(fields: [userId], references: [id])
+  status          OrderStatus   @default(PENDING)
+  total           Float
+  paymentId       String?       @unique
+  paymentMethod   PaymentMethod @default(WOMPI)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
   shippingAddress Json?
-  items     OrderItem[]
+  items           OrderItem[]
 }
 
 model OrderItem {
-  id        String    @id @default(uuid())
+  id        String   @id @default(uuid())
   productId String
   orderId   String
   variantId String?
   quantity  Int
   price     Float
-  product   Product   @relation(fields: [productId], references: [id])
-  variant   Variant?  @relation(fields: [variantId], references: [id])
-  order     Order     @relation(fields: [orderId], references: [id])
+  product   Product  @relation(fields: [productId], references: [id])
+  variant   Variant? @relation(fields: [variantId], references: [id])
+  order     Order    @relation(fields: [orderId], references: [id])
 }
 
 model Address {
@@ -174,4 +178,17 @@ model ShippingRate {
   updatedAt DateTime @updatedAt
 
   @@unique([country, state, city]) // Ensure no duplicate rules for the same location combo
+}
+
+model B2BPrice {
+  id          String   @id @default(uuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  minQuantity Int // e.g., 12, 50, 100
+  price       Float
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([productId, minQuantity])
 }

@@ -14,7 +14,7 @@ export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mailService: MailService,
-  ) {}
+  ) { }
 
   async create(createOrderDto: CreateOrderDto) {
     const { userId, items, paymentId, paymentMethod, shippingAddress } =
@@ -37,7 +37,7 @@ export class OrdersService {
       for (const item of createOrderDto.items) {
         const product = await tx.product.findUnique({
           where: { id: item.productId },
-          include: { variants: true },
+          include: { variants: true, b2bPrices: true },
         });
 
         if (!product) {
@@ -82,6 +82,32 @@ export class OrdersService {
             where: { id: product.id },
             data: { stock: { decrement: item.quantity } },
           });
+        }
+
+        // --- B2B vs Normal User Price Logic ---
+        const isB2B = user.role === 'B2B' && user.isB2BApproved;
+
+        if (isB2B) {
+          // B2B logic ignores discounts, checks volume tiers
+          const applicableTiers = product.b2bPrices
+            .filter((t) => t.isActive && item.quantity >= t.minQuantity)
+            .sort((a, b) => b.minQuantity - a.minQuantity);
+
+          if (applicableTiers.length > 0) {
+            price = applicableTiers[0].price;
+          }
+        } else {
+          // Normal users logic - respects standard discounts if no variant override
+          // Or applies product discountPrice if it exists and is valid
+          const now = new Date();
+          if (
+            product.discountPrice &&
+            product.discountEndDate &&
+            now <= product.discountEndDate &&
+            !item.variantId // Typically discounts apply to base products, unless variant has one
+          ) {
+            price = product.discountPrice;
+          }
         }
 
         total += price * item.quantity;
