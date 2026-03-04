@@ -5,7 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class CategoriesService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   create(createCategoryDto: CreateCategoryDto) {
     const slug = this.slugify(createCategoryDto.slug || createCategoryDto.name);
@@ -22,9 +22,9 @@ export class CategoriesService {
       .toString()
       .toLowerCase()
       .trim()
-      .replace(/\s+/g, '-')     // Replace spaces with -
-      .replace(/[^\w-]+/g, '')  // Remove all non-word chars
-      .replace(/--+/g, '-');    // Replace multiple - with single -
+      .replace(/\s+/g, '-') // Replace spaces with -
+      .replace(/[^\w-]+/g, '') // Remove all non-word chars
+      .replace(/--+/g, '-'); // Replace multiple - with single -
   }
 
   findAll() {

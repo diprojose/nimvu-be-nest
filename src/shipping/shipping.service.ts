@@ -5,7 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class ShippingService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   create(createShippingDto: CreateShippingDto) {
     return this.prisma.shippingRate.create({
@@ -52,7 +52,7 @@ export class ShippingService {
         where: {
           country: { equals: country, mode: 'insensitive' },
           state: { equals: targetState, mode: 'insensitive' },
-          city: { equals: targetCity, mode: 'insensitive' }
+          city: { equals: targetCity, mode: 'insensitive' },
         },
       });
       if (cityRate) return cityRate;
@@ -64,10 +64,7 @@ export class ShippingService {
         where: {
           country: { equals: country, mode: 'insensitive' },
           state: { equals: targetState, mode: 'insensitive' },
-          OR: [
-            { city: null },
-            { city: '' }
-          ]
+          OR: [{ city: null }, { city: '' }],
         },
       });
       if (stateRate) return stateRate;
@@ -77,16 +74,10 @@ export class ShippingService {
     const countryRate = await this.prisma.shippingRate.findFirst({
       where: {
         country: { equals: country, mode: 'insensitive' },
-        OR: [
-          { state: null },
-          { state: '' }
-        ],
+        OR: [{ state: null }, { state: '' }],
         AND: {
-          OR: [
-            { city: null },
-            { city: '' }
-          ]
-        }
+          OR: [{ city: null }, { city: '' }],
+        },
       },
     });
 

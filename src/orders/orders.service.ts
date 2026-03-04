@@ -1,4 +1,9 @@
-import { Injectable, BadRequestException, NotFoundException, Inject } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  Inject,
+} from '@nestjs/common';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -8,11 +13,12 @@ import { MailService } from '../mail/mail.service';
 export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly mailService: MailService
-  ) { }
+    private readonly mailService: MailService,
+  ) {}
 
   async create(createOrderDto: CreateOrderDto) {
-    const { userId, items, paymentId, shippingAddress } = createOrderDto;
+    const { userId, items, paymentId, paymentMethod, shippingAddress } =
+      createOrderDto;
 
     // 1. Validate User exists
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
@@ -21,7 +27,12 @@ export class OrdersService {
     // 2. Transaction: Validate Stock -> Calculate Total -> Create Order -> Decrement Stock
     const order = await this.prisma.$transaction(async (tx) => {
       let total = 0;
-      const orderItemsData: { productId: string; quantity: number; price: number; variantId?: string }[] = [];
+      const orderItemsData: {
+        productId: string;
+        quantity: number;
+        price: number;
+        variantId?: string;
+      }[] = [];
       // 2. Validate Items & Calculate Total
       for (const item of createOrderDto.items) {
         const product = await tx.product.findUnique({
@@ -30,19 +41,25 @@ export class OrdersService {
         });
 
         if (!product) {
-          throw new NotFoundException(`Product with ID ${item.productId} not found`);
+          throw new NotFoundException(
+            `Product with ID ${item.productId} not found`,
+          );
         }
 
         let price = product.price;
 
         // Handle Variant Logic
         if (item.variantId) {
-          const variant = product.variants.find(v => v.id === item.variantId);
+          const variant = product.variants.find((v) => v.id === item.variantId);
           if (!variant) {
-            throw new NotFoundException(`Variant with ID ${item.variantId} not found for product ${product.name}`);
+            throw new NotFoundException(
+              `Variant with ID ${item.variantId} not found for product ${product.name}`,
+            );
           }
           if (variant.stock < item.quantity) {
-            throw new BadRequestException(`Insufficient stock for variant ${variant.name} of product ${product.name}`);
+            throw new BadRequestException(
+              `Insufficient stock for variant ${variant.name} of product ${product.name}`,
+            );
           }
           if (variant.price) {
             price = variant.price;
@@ -56,7 +73,9 @@ export class OrdersService {
         } else {
           // Handle Base Product Logic
           if (product.stock < item.quantity) {
-            throw new BadRequestException(`Insufficient stock for product ${product.name}`);
+            throw new BadRequestException(
+              `Insufficient stock for product ${product.name}`,
+            );
           }
           // Decrement Product Stock
           await tx.product.update({
@@ -80,6 +99,7 @@ export class OrdersService {
           userId,
           total,
           paymentId,
+          paymentMethod, // Inherited newly parsed tracking prop
           shippingAddress, // Save validated address snapshot
           items: {
             create: orderItemsData,
@@ -100,15 +120,21 @@ export class OrdersService {
     const where = userId ? { userId } : {};
     return this.prisma.order.findMany({
       where,
-      include: { items: { include: { product: true } }, user: { select: { id: true, email: true, name: true } } },
-      orderBy: { createdAt: 'desc' }
+      include: {
+        items: { include: { product: true } },
+        user: { select: { id: true, email: true, name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
   findOne(id: string) {
     return this.prisma.order.findUnique({
       where: { id },
-      include: { items: { include: { product: true } }, user: { select: { id: true, email: true, name: true } } },
+      include: {
+        items: { include: { product: true } },
+        user: { select: { id: true, email: true, name: true } },
+      },
     });
   }
 

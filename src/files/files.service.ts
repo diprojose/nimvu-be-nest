@@ -11,10 +11,12 @@ export class FilesService {
     this.s3Client = new S3Client({
       forcePathStyle: true,
       region: 'us-east-1', // Dummy region for Supabase
-      endpoint: 'https://rnhwvaurswbnnxyedzsx.storage.supabase.co/storage/v1/s3',
+      endpoint:
+        'https://rnhwvaurswbnnxyedzsx.storage.supabase.co/storage/v1/s3',
       credentials: {
         accessKeyId: 'bb2959286a8d20fe39d6d0e53a17873f', // Provided by user
-        secretAccessKey: '32485a52da84465ba06949bd8bad15c94d5e14ba2e142ac852757dc30c3acaa3', // Provided by user
+        secretAccessKey:
+          '32485a52da84465ba06949bd8bad15c94d5e14ba2e142ac852757dc30c3acaa3', // Provided by user
       },
     });
   }

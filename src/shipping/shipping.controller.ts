@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  UseGuards,
+  BadRequestException,
+} from '@nestjs/common';
 import { ShippingService } from './shipping.service';
 import { CreateShippingDto } from './dto/create-shipping.dto';
 import { UpdateShippingDto } from './dto/update-shipping.dto';
@@ -6,7 +17,7 @@ import { UpdateShippingDto } from './dto/update-shipping.dto';
 
 @Controller('shipping')
 export class ShippingController {
-  constructor(private readonly shippingService: ShippingService) { }
+  constructor(private readonly shippingService: ShippingService) {}
 
   @Post()
   // @UseGuards(AuthGuard('jwt'))
@@ -32,7 +43,10 @@ export class ShippingController {
 
   @Patch(':id')
   // @UseGuards(AuthGuard('jwt'))
-  update(@Param('id') id: string, @Body() updateShippingDto: UpdateShippingDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updateShippingDto: UpdateShippingDto,
+  ) {
     return this.shippingService.update(id, updateShippingDto);
   }
 

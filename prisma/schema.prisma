@@ -13,6 +13,11 @@ enum Role {
   ADMIN
 }
 
+enum PaymentMethod {
+  WOMPI
+  CASH_ON_DELIVERY
+}
+
 enum OrderStatus {
   PENDING
   PROCESSING
@@ -55,6 +60,7 @@ model Product {
   category    Category?   @relation(fields: [categoryId], references: [id])
   collections Collection[]
   discountPrice Float?
+  discountEndDate DateTime?
   discounts   Discount[]
 }
 
@@ -114,6 +120,7 @@ model Order {
   status    OrderStatus @default(PENDING)
   total     Float
   paymentId String?     @unique
+  paymentMethod PaymentMethod @default(WOMPI)
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
   shippingAddress Json?

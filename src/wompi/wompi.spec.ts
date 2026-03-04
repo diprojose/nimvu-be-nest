@@ -1,4 +1,3 @@
-
 import { Test, TestingModule } from '@nestjs/testing';
 import { WompiController } from './wompi.controller';
 import { WompiService } from './wompi.service';
@@ -101,7 +100,10 @@ describe('Wompi Webhook (Custom E2E)', () => {
     expect(mockPrismaService.order.findFirst).toHaveBeenCalled();
     expect(mockPrismaService.order.update).toHaveBeenCalledWith({
       where: { id: 'order_123' },
-      data: expect.objectContaining({ status: 'PROCESSING', paymentId: transactionId })
+      data: expect.objectContaining({
+        status: 'PROCESSING',
+        paymentId: transactionId,
+      }),
     });
   });
 });

@@ -10,7 +10,7 @@ export class WompiService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
-  ) { }
+  ) {}
 
   async handleWebhook(data: any) {
     // Wompi sends the event structure: { event: string, data: { transaction: ... }, signature: { checksum: ... }, timestamp: number, environment: string }
@@ -31,7 +31,9 @@ export class WompiService {
     const transaction = data.data.transaction;
 
     if (!transaction) {
-      throw new BadRequestException('Invalid payload: transaction data missing');
+      throw new BadRequestException(
+        'Invalid payload: transaction data missing',
+      );
     }
 
     const { id, status, reference, amount_in_cents, currency } = transaction;
@@ -42,23 +44,29 @@ export class WompiService {
     // Checksum = SHA256(transaction.id + transaction.status + transaction.amount_in_cents + timestamp + secret)
     const secret = this.configService.get<string>('WOMPI_EVENTS_SECRET');
     if (!secret) {
-      this.logger.error('WOMPI_EVENTS_SECRET is not defined in environment variables');
+      this.logger.error(
+        'WOMPI_EVENTS_SECRET is not defined in environment variables',
+      );
       throw new BadRequestException('Server misconfiguration');
     }
 
     // Ensure all parts are strings for concatenation
     const signatureString = `${id}${status}${amount_in_cents}${timestamp}${secret}`;
-    const calculatedChecksum = createHash('sha256').update(signatureString).digest('hex');
+    const calculatedChecksum = createHash('sha256')
+      .update(signatureString)
+      .digest('hex');
 
     if (calculatedChecksum !== signatureChecksum) {
       this.logger.error('Invalid signature for Wompi webhook');
       // Uncomment to enforce signature validation after testing
-      // throw new BadRequestException('Invalid signature'); 
-      // For now, let's log it but verify if user wants strict mode. User just wants it to work. 
+      // throw new BadRequestException('Invalid signature');
+      // For now, let's log it but verify if user wants strict mode. User just wants it to work.
       // We SHOULD enforce it for security.
     }
 
-    this.logger.log(`Processing transaction ${id} with status ${status} for reference ${reference}`);
+    this.logger.log(
+      `Processing transaction ${id} with status ${status} for reference ${reference}`,
+    );
 
     // Update Order
     // Assuming 'reference' is the Order ID or Payment ID.
@@ -74,13 +82,15 @@ export class WompiService {
       where: {
         OR: [
           { id: reference },
-          { paymentId: id } // If we stored the Wompi ID in paymentId
-        ]
-      }
+          { paymentId: id }, // If we stored the Wompi ID in paymentId
+        ],
+      },
     });
 
     if (!order) {
-      this.logger.warn(`Order not found for reference ${reference} or transaction ID ${id}`);
+      this.logger.warn(
+        `Order not found for reference ${reference} or transaction ID ${id}`,
+      );
       return { status: 'order_not_found' };
     }
 
@@ -89,14 +99,18 @@ export class WompiService {
     if (status === 'APPROVED') {
       // If it was already processed, ignore?
       if (order.status === 'PENDING') {
-        // Logic to start processing (e.g. if we didn't deduct stock before, do it now? 
-        // Logic in OrderService.create decrements stock IMMEDIATELY. 
+        // Logic to start processing (e.g. if we didn't deduct stock before, do it now?
+        // Logic in OrderService.create decrements stock IMMEDIATELY.
         // So if it fails, we should technically restore stock.
         // But usually we just mark as PAID/PROCESSING.
         newStatus = 'PROCESSING'; // or whatever enum maps to PAID. Schema has PENDING, PROCESSING, SHIPPED, DELIVERED, CANCELLED.
         // Let's use PROCESSING for Paid.
       }
-    } else if (status === 'DECLINED' || status === 'VOIDED' || status === 'ERROR') {
+    } else if (
+      status === 'DECLINED' ||
+      status === 'VOIDED' ||
+      status === 'ERROR'
+    ) {
       if (order.status !== 'CANCELLED') {
         newStatus = 'CANCELLED';
         // TODO: Restore stock if we deducted it on creation?
@@ -110,7 +124,7 @@ export class WompiService {
         data: {
           status: newStatus,
           paymentId: id, // Ensure we save the Wompi transaction ID
-        }
+        },
       });
 
       // If cancelled, restore stock
@@ -127,7 +141,7 @@ export class WompiService {
   private async restoreStock(orderId: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      include: { items: true }
+      include: { items: true },
     });
 
     if (!order) return;
@@ -137,12 +151,12 @@ export class WompiService {
         if (item.variantId) {
           await tx.variant.update({
             where: { id: item.variantId },
-            data: { stock: { increment: item.quantity } }
+            data: { stock: { increment: item.quantity } },
           });
         } else {
           await tx.product.update({
             where: { id: item.productId },
-            data: { stock: { increment: item.quantity } }
+            data: { stock: { increment: item.quantity } },
           });
         }
       }

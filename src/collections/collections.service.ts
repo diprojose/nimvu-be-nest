@@ -5,16 +5,19 @@ import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class CollectionsService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   async create(createCollectionDto: CreateCollectionDto) {
     const { productIds, ...data } = createCollectionDto;
     return this.prisma.collection.create({
       data: {
         ...data,
-        products: productIds && productIds.length > 0 ? {
-          connect: productIds.map(id => ({ id })),
-        } : undefined,
+        products:
+          productIds && productIds.length > 0
+            ? {
+                connect: productIds.map((id) => ({ id })),
+              }
+            : undefined,
       },
       include: { products: true },
     });
@@ -54,9 +57,11 @@ export class CollectionsService {
       where: { id },
       data: {
         ...data,
-        products: productIds ? {
-          set: productIds.map(proId => ({ id: proId })),
-        } : undefined,
+        products: productIds
+          ? {
+              set: productIds.map((proId) => ({ id: proId })),
+            }
+          : undefined,
       },
       include: { products: true },
     });

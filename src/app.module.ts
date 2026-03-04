@@ -16,7 +16,11 @@ import { ShippingModule } from './shipping/shipping.module';
 import { WompiModule } from './wompi/wompi.module';
 
 @Module({
-  imports: [ProductsModule, PrismaModule, UsersModule, OrdersModule,
+  imports: [
+    ProductsModule,
+    PrismaModule,
+    UsersModule,
+    OrdersModule,
     AuthModule,
     FilesModule,
     AddressesModule,
@@ -25,10 +29,10 @@ import { WompiModule } from './wompi/wompi.module';
     CollectionsModule,
     DiscountsModule,
     ShippingModule,
-    WompiModule
+    WompiModule,
   ],
   controllers: [AppController],
 
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule {}

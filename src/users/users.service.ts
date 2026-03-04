@@ -10,8 +10,8 @@ import { MailService } from '../mail/mail.service';
 export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly mailService: MailService
-  ) { }
+    private readonly mailService: MailService,
+  ) {}
 
   async create(createUserDto: CreateUserDto) {
     const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
@@ -19,7 +19,7 @@ export class UsersService {
       data: {
         ...createUserDto,
         password: hashedPassword,
-        role: createUserDto.role as Role || Role.USER, // Default to USER if not provided
+        role: (createUserDto.role as Role) || Role.USER, // Default to USER if not provided
       },
     });
 
@@ -38,7 +38,7 @@ export class UsersService {
         role: true,
         createdAt: true,
         updatedAt: true,
-      }
+      },
       // Exclude password from list
     });
   }
@@ -47,8 +47,8 @@ export class UsersService {
     return this.prisma.user.findUnique({
       where: { id },
       include: {
-        addresses: true
-      }
+        addresses: true,
+      },
     });
   }
 
@@ -66,7 +66,7 @@ export class UsersService {
       where: { id },
       data: {
         ...updateUserDto,
-        role: updateUserDto.role as Role
+        role: updateUserDto.role as Role,
       },
     });
   }

@@ -9,4 +9,4 @@ import { ConfigModule } from '@nestjs/config';
   controllers: [WompiController],
   providers: [WompiService],
 })
-export class WompiModule { }
+export class WompiModule {}

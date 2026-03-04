@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+} from '@nestjs/common';
 import { DiscountsService } from './discounts.service';
 import { CreateDiscountDto } from './dto/create-discount.dto';
 import { UpdateDiscountDto } from './dto/update-discount.dto';
@@ -14,6 +23,11 @@ export class DiscountsController {
     return this.discountsService.create(createDiscountDto);
   }
 
+  @Get('validate/:code')
+  validateCoupon(@Param('code') code: string) {
+    return this.discountsService.validateCoupon(code);
+  }
+
   @Get()
   findAll() {
     return this.discountsService.findAll();
@@ -26,7 +40,10 @@ export class DiscountsController {
 
   @Patch(':id')
   // @UseGuards(AuthGuard('jwt'))
-  update(@Param('id') id: string, @Body() updateDiscountDto: UpdateDiscountDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updateDiscountDto: UpdateDiscountDto,
+  ) {
     return this.discountsService.update(id, updateDiscountDto);
   }
 

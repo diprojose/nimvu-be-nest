@@ -5,7 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   private slugify(text: string): string {
     return text
@@ -43,7 +43,10 @@ export class ProductsService {
   }
 
   findOne(term: string) {
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(term);
+    const isUuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        term,
+      );
     const where = isUuid ? { id: term } : { slug: term };
 
     return this.prisma.product.findUnique({
@@ -64,7 +67,9 @@ export class ProductsService {
 
     // Auto-generate slug if missing in DB and not provided in update
     if (!data.slug) {
-      const currentProduct = await this.prisma.product.findUnique({ where: { id } });
+      const currentProduct = await this.prisma.product.findUnique({
+        where: { id },
+      });
       if (currentProduct && !currentProduct.slug) {
         const nameToSlugify = data.name || currentProduct.name;
         (data as any).slug = this.slugify(nameToSlugify);
@@ -96,7 +101,7 @@ export class ProductsService {
                 where: { sku: variantData.sku },
                 update: variantData,
                 create: {
-                  ...variantData as any,
+                  ...(variantData as any),
                   productId: id,
                 },
               });

@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+} from '@nestjs/common';
 import { CollectionsService } from './collections.service';
 import { CreateCollectionDto } from './dto/create-collection.dto';
 import { UpdateCollectionDto } from './dto/update-collection.dto';
@@ -6,7 +15,7 @@ import { AuthGuard } from '@nestjs/passport'; // Assuming AuthGuard is used
 
 @Controller('collections')
 export class CollectionsController {
-  constructor(private readonly collectionsService: CollectionsService) { }
+  constructor(private readonly collectionsService: CollectionsService) {}
 
   @Post()
   // @UseGuards(AuthGuard('jwt')) // Uncomment if auth is required
@@ -30,7 +39,10 @@ export class CollectionsController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateCollectionDto: UpdateCollectionDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updateCollectionDto: UpdateCollectionDto,
+  ) {
     return this.collectionsService.update(id, updateCollectionDto);
   }
 

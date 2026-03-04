@@ -9,7 +9,9 @@ class UpdateVariantDto extends PartialType(CreateVariantDto) {
   id?: string;
 }
 
-export class UpdateProductDto extends PartialType(OmitType(CreateProductDto, ['variants'] as const)) {
+export class UpdateProductDto extends PartialType(
+  OmitType(CreateProductDto, ['variants'] as const),
+) {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => UpdateVariantDto)

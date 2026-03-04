@@ -17,8 +17,12 @@ export class DiscountsService {
           ...data,
           startDate: new Date(data.startDate),
           endDate: new Date(data.endDate),
-          products: productIds?.length ? { connect: productIds.map(id => ({ id })) } : undefined,
-          collections: collectionIds?.length ? { connect: collectionIds.map(id => ({ id })) } : undefined,
+          products: productIds?.length
+            ? { connect: productIds.map((id) => ({ id })) }
+            : undefined,
+          collections: collectionIds?.length
+            ? { connect: collectionIds.map((id) => ({ id })) }
+            : undefined,
         },
         include: { products: true, collections: true },
       });
@@ -53,6 +57,30 @@ export class DiscountsService {
     return discount;
   }
 
+  async validateCoupon(code: string) {
+    const now = new Date();
+    const discount = await this.prisma.discount.findUnique({
+      where: { code },
+      include: { products: true, collections: { include: { products: true } } },
+    });
+
+    if (!discount) {
+      throw new NotFoundException('Cupón no encontrado');
+    }
+    if (!discount.isActive) {
+      throw new NotFoundException('Este cupón está desactivado');
+    }
+    if (now < discount.startDate || now > discount.endDate) {
+      throw new NotFoundException('El cupón no está dentro de la fecha válida');
+    }
+    // Optionally check if usageLimit > usedCount (requires incrementing later)
+    if (discount.usageLimit && discount.usedCount >= discount.usageLimit) {
+      throw new NotFoundException('El cupón ha alcanzado su límite de usos');
+    }
+
+    return discount;
+  }
+
   async update(id: string, updateDiscountDto: UpdateDiscountDto) {
     const { productIds, collectionIds, ...data } = updateDiscountDto;
 
@@ -63,8 +91,12 @@ export class DiscountsService {
           ...data,
           startDate: data.startDate ? new Date(data.startDate) : undefined,
           endDate: data.endDate ? new Date(data.endDate) : undefined,
-          products: productIds ? { set: productIds.map(id => ({ id })) } : undefined,
-          collections: collectionIds ? { set: collectionIds.map(id => ({ id })) } : undefined,
+          products: productIds
+            ? { set: productIds.map((id) => ({ id })) }
+            : undefined,
+          collections: collectionIds
+            ? { set: collectionIds.map((id) => ({ id })) }
+            : undefined,
         },
         include: { products: true, collections: true },
       });
@@ -76,6 +108,9 @@ export class DiscountsService {
         } else {
           await this.removeDiscountFromProducts(discount.id);
         }
+      } else {
+        // If a code was assigned, it is now a coupon and should NOT be hard-written to products.
+        await this.removeDiscountFromProducts(discount.id);
       }
 
       return discount;
@@ -108,7 +143,7 @@ export class DiscountsService {
     for (const collection of discount.collections) {
       const col = await this.prisma.collection.findUnique({
         where: { id: collection.id },
-        include: { products: true }
+        include: { products: true },
       });
       if (col && col.products) {
         targets = [...targets, ...col.products];
@@ -116,11 +151,13 @@ export class DiscountsService {
     }
 
     // Deduplicate
-    const uniqueProductIds = [...new Set(targets.map(p => p.id))];
+    const uniqueProductIds = [...new Set(targets.map((p) => p.id))];
 
     // 2. Update each product
     for (const productId of uniqueProductIds) {
-      const product = await this.prisma.product.findUnique({ where: { id: productId } });
+      const product = await this.prisma.product.findUnique({
+        where: { id: productId },
+      });
       if (!product) continue;
 
       let newPrice = product.price;
@@ -132,7 +169,10 @@ export class DiscountsService {
 
       await this.prisma.product.update({
         where: { id: productId },
-        data: { discountPrice: newPrice },
+        data: {
+          discountPrice: newPrice,
+          discountEndDate: discount.endDate
+        },
       });
     }
   }
@@ -147,19 +187,22 @@ export class DiscountsService {
     for (const collection of discount.collections) {
       const col = await this.prisma.collection.findUnique({
         where: { id: collection.id },
-        include: { products: true }
+        include: { products: true },
       });
       if (col && col.products) {
         targets = [...targets, ...col.products];
       }
     }
 
-    const uniqueProductIds = [...new Set(targets.map(p => p.id))];
+    const uniqueProductIds = [...new Set(targets.map((p) => p.id))];
 
     for (const productId of uniqueProductIds) {
       await this.prisma.product.update({
         where: { id: productId },
-        data: { discountPrice: null },
+        data: {
+          discountPrice: null,
+          discountEndDate: null
+        },
       });
     }
   }

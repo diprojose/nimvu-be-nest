@@ -21,8 +21,8 @@ import { ConfigService, ConfigModule } from '@nestjs/config';
             rejectUnauthorized: false,
           },
           connectionTimeout: 60000, // 60s
-          greetingTimeout: 30000,   // 30s
-          socketTimeout: 60000,     // 60s
+          greetingTimeout: 30000, // 30s
+          socketTimeout: 60000, // 60s
           debug: true, // Enable debug logging
           logger: true, // Log to console
         },
@@ -36,4 +36,4 @@ import { ConfigService, ConfigModule } from '@nestjs/config';
   providers: [MailService],
   exports: [MailService],
 })
-export class MailModule { }
+export class MailModule {}
