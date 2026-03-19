@@ -23,9 +23,11 @@ export class CollectionsService {
     });
   }
 
-  findAll() {
+  findAll(isB2BContext: boolean = false) {
     return this.prisma.collection.findMany({
-      include: { products: true },
+      include: {
+        products: isB2BContext ? true : { where: { isB2BOnly: false } },
+      },
     });
   }
 
@@ -40,10 +42,12 @@ export class CollectionsService {
     return collection;
   }
 
-  async findBySlug(slug: string) {
+  async findBySlug(slug: string, isB2BContext: boolean = false) {
     const collection = await this.prisma.collection.findUnique({
       where: { slug },
-      include: { products: true },
+      include: {
+        products: isB2BContext ? true : { where: { isB2BOnly: false } },
+      },
     });
     if (!collection) {
       throw new NotFoundException(`Collection with slug ${slug} not found`);

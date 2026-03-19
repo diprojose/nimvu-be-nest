@@ -27,16 +27,24 @@ export class CategoriesService {
       .replace(/--+/g, '-'); // Replace multiple - with single -
   }
 
-  findAll() {
+  findAll(isB2BContext: boolean = false) {
     return this.prisma.category.findMany({
-      include: { _count: { select: { products: true } } }, // Include product count
+      include: {
+        _count: {
+          select: {
+            products: isB2BContext ? true : { where: { isB2BOnly: false } },
+          },
+        },
+      },
     });
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, isB2BContext: boolean = false) {
     const category = await this.prisma.category.findUnique({
       where: { id },
-      include: { products: true },
+      include: {
+        products: isB2BContext ? true : { where: { isB2BOnly: false } },
+      },
     });
     if (!category) {
       throw new NotFoundException(`Category #${id} not found`);

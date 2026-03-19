@@ -1,5 +1,6 @@
 import {
   IsArray,
+  IsBoolean,
   IsInt,
   IsNotEmpty,
   IsNumber,
@@ -82,6 +83,10 @@ export class CreateProductDto {
   @IsString()
   @IsOptional()
   categoryId?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  isB2BOnly?: boolean;
 
   @IsArray()
   @ValidateNested({ each: true })

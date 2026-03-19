@@ -7,6 +7,7 @@ import {
   Param,
   Delete,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 import { CollectionsService } from './collections.service';
 import { CreateCollectionDto } from './dto/create-collection.dto';
@@ -24,13 +25,15 @@ export class CollectionsController {
   }
 
   @Get()
-  findAll() {
-    return this.collectionsService.findAll();
+  findAll(@Query('isB2B') isB2B?: string) {
+    const isB2BContext = isB2B === 'true';
+    return this.collectionsService.findAll(isB2BContext);
   }
 
   @Get('slug/:slug')
-  findBySlug(@Param('slug') slug: string) {
-    return this.collectionsService.findBySlug(slug);
+  findBySlug(@Param('slug') slug: string, @Query('isB2B') isB2B?: string) {
+    const isB2BContext = isB2B === 'true';
+    return this.collectionsService.findBySlug(slug, isB2BContext);
   }
 
   @Get(':id')

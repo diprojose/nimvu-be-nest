@@ -58,13 +58,13 @@ model Product {
   longDescription String? // @db.Text is implied for String in Prisma unless specified otherwise, but for Postgres String is text.
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
+  isB2BOnly       Boolean      @default(false)
   slug            String?      @unique
   variants        Variant[]
   orderItems      OrderItem[]
   categoryId      String?
   category        Category?    @relation(fields: [categoryId], references: [id])
   collections     Collection[]
-  b2bPrices       B2BPrice[]
   discountPrice   Float?
   discountEndDate DateTime?
   discounts       Discount[]
@@ -178,17 +178,4 @@ model ShippingRate {
   updatedAt DateTime @updatedAt
 
   @@unique([country, state, city]) // Ensure no duplicate rules for the same location combo
-}
-
-model B2BPrice {
-  id          String   @id @default(uuid())
-  productId   String
-  product     Product  @relation(fields: [productId], references: [id])
-  minQuantity Int // e.g., 12, 50, 100
-  price       Float
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@unique([productId, minQuantity])
 }

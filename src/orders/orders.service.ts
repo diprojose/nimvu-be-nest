@@ -37,7 +37,7 @@ export class OrdersService {
       for (const item of createOrderDto.items) {
         const product = await tx.product.findUnique({
           where: { id: item.productId },
-          include: { variants: true, b2bPrices: true },
+          include: { variants: true },
         });
 
         if (!product) {
@@ -88,13 +88,13 @@ export class OrdersService {
         const isB2B = user.role === 'B2B' && user.isB2BApproved;
 
         if (isB2B) {
-          // B2B logic ignores discounts, checks volume tiers
-          const applicableTiers = product.b2bPrices
-            .filter((t) => t.isActive && item.quantity >= t.minQuantity)
-            .sort((a, b) => b.minQuantity - a.minQuantity);
-
-          if (applicableTiers.length > 0) {
-            price = applicableTiers[0].price;
+          // B2B Global Percentage Logic
+          if (item.quantity >= 200) {
+            price = price * 0.75; // 25% discount
+          } else if (item.quantity >= 50) {
+            price = price * 0.80; // 20% discount
+          } else if (item.quantity >= 12) {
+            price = price * 0.90; // 10% discount
           }
         } else {
           // Normal users logic - respects standard discounts if no variant override

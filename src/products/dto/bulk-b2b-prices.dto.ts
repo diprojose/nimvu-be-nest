@@ -15,7 +15,7 @@ export class B2BPriceDto {
 
   @IsNumber()
   @IsOptional()
-  price100?: number;
+  price200?: number;
 
   @IsBoolean()
   isActive: boolean;

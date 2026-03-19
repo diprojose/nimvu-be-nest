@@ -7,11 +7,11 @@ import {
   Param,
   Delete,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
-import { BulkB2BPricesDto } from './dto/bulk-b2b-prices.dto';
 import { AuthGuard } from '@nestjs/passport';
 
 @Controller('products')
@@ -24,15 +24,10 @@ export class ProductsController {
     return this.productsService.create(createProductDto);
   }
 
-  @UseGuards(AuthGuard('jwt'))
-  @Post('b2b-prices/bulk')
-  updateB2BPricesBulk(@Body() bulkDto: BulkB2BPricesDto) {
-    return this.productsService.updateB2BPricesBulk(bulkDto);
-  }
-
   @Get()
-  findAll() {
-    return this.productsService.findAll();
+  findAll(@Query('isB2B') isB2B?: string) {
+    const isB2BContext = isB2B === 'true';
+    return this.productsService.findAll(isB2BContext);
   }
 
   @Get(':id')

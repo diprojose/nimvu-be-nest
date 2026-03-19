@@ -8,6 +8,7 @@ import {
   Delete,
   UseGuards,
   Request,
+  Query,
 } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
@@ -26,13 +27,15 @@ export class CategoriesController {
   }
 
   @Get()
-  findAll() {
-    return this.categoriesService.findAll();
+  findAll(@Query('isB2B') isB2B?: string) {
+    const isB2BContext = isB2B === 'true';
+    return this.categoriesService.findAll(isB2BContext);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.categoriesService.findOne(id);
+  findOne(@Param('id') id: string, @Query('isB2B') isB2B?: string) {
+    const isB2BContext = isB2B === 'true';
+    return this.categoriesService.findOne(id, isB2BContext);
   }
 
   @Patch(':id')
