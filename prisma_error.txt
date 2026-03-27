@@ -1,0 +1,8 @@
+npm warn Unknown user config "msvs_version". This will stop working in the next major version of npm.
+npm warn Unknown global config "msvs_version". This will stop working in the next major version of npm.
+npm warn Unknown global config "python". This will stop working in the next major version of npm.
+[2mEnvironment variables loaded from .env[22m
+[1m[31mError: [39m[22m
+EPERM: operation not permitted, rename 'C:\Users\Jose_Parejo\Documents\Projects\Nimvu\Backend\nimvu-nest\node_modules\.prisma\client\query_engine-windows.dll.node.tmp3796' -> 'C:\Users\Jose_Parejo\Documents\Projects\Nimvu\Backend\nimvu-nest\node_modules\.prisma\client\query_engine-windows.dll.node'
+
+

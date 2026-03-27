@@ -29,6 +29,7 @@ export class CategoriesService {
 
   findAll(isB2BContext: boolean = false) {
     return this.prisma.category.findMany({
+      orderBy: { order: 'asc' },
       include: {
         _count: {
           select: {
