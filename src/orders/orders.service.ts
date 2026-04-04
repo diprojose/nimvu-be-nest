@@ -131,13 +131,20 @@ export class OrdersService {
             create: orderItemsData,
           },
         },
-        include: { items: true },
+        include: {
+          items: {
+            include: {
+              product: { select: { name: true } },
+              variant: { select: { name: true } },
+            },
+          },
+        },
       });
     });
 
     // Send emails
     this.mailService.sendOrderConfirmation(user, order);
-    this.mailService.sendAdminOrderAlert(order);
+    this.mailService.sendAdminOrderAlert(user, order);
 
     return order;
   }
