@@ -42,20 +42,86 @@ export class MailService {
     });
   }
 
-  async sendOrderConfirmation(user: any, order: any) {
+  async sendGuestWelcome(user: any, generatedPassword: string) {
     await this.mailerService.sendMail({
       to: user.email,
-      subject: `Confirmación de Pedido #${order.id}`,
+      subject: '¡Tu cuenta en Nimvu ha sido creada!',
       html: `
         <div style="font-family: Arial, sans-serif; color: #333;">
-          <h1 style="color: #000;">¡Gracias por tu compra!</h1>
-          <p>Hola ${user.name},</p>
-          <p>Hemos recibido tu pedido #${order.id} y lo estamos procesando.</p>
-          <p><strong>Total:</strong> $${order.total}</p>
+          <h1 style="color: #000;">Bienvenido a Nimvu, ${user.name}!</h1>
+          <p>Gracias por tu compra. Para que puedas hacer seguimiento de tu pedido y disfrutar de una experiencia más rápida en el futuro, hemos creado una cuenta para ti con los siguientes datos:</p>
           <br/>
-          <p>Te notificaremos cuando tu pedido sea enviado.</p>
+          <p><strong>Usuario:</strong> ${user.email}</p>
+          <p><strong>Contraseña provisional:</strong> ${generatedPassword}</p>
           <br/>
-          <p>Gracias por elegir Nimvu.</p>
+          <p>Te recomendamos <a href="https://www.somosnimvu.com/my-account">iniciar sesión</a> y cambiar esta contraseña lo antes posible.</p>
+          <br/>
+          <p>Saludos,</p>
+          <p>El equipo de Nimvu</p>
+        </div>
+      `,
+    });
+  }
+
+  async sendOrderConfirmation(user: any, order: any) {
+    const addr = order.shippingAddress as any;
+    const shippingCost = addr?.shippingCost || 0;
+    const productsTotal = order.total - shippingCost;
+
+    const itemRows = (order.items ?? [])
+      .map((item: any) => {
+        const productName = item.product?.name ?? 'Producto';
+        const variantName = item.variant?.name ? ` (${item.variant.name})` : '';
+        const subtotal = (item.price * item.quantity).toLocaleString('es-CO');
+        const imageUrl = item.product?.images?.[0] || 'https://via.placeholder.com/60';
+        return `
+          <tr>
+            <td style="padding:12px 8px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:12px;">
+              <img src="${imageUrl}" alt="${productName}" style="width:60px;height:60px;object-fit:cover;border-radius:4px;"/>
+              <span>${productName}${variantName}</span>
+            </td>
+            <td style="padding:12px 8px;border-bottom:1px solid #eee;text-align:center;">${item.quantity}</td>
+            <td style="padding:12px 8px;border-bottom:1px solid #eee;text-align:right;">$${item.price.toLocaleString('es-CO')}</td>
+            <td style="padding:12px 8px;border-bottom:1px solid #eee;text-align:right;font-weight:bold;">$${subtotal}</td>
+          </tr>`;
+      })
+      .join('');
+
+    await this.mailerService.sendMail({
+      to: user.email,
+      subject: `Confirmación de Pedido #${order.id.slice(0, 8)}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 8px; overflow: hidden;">
+          <div style="background: #f9f9f9; padding: 30px 24px; text-align: center; border-bottom: 1px solid #eee;">
+            <h1 style="color: #000; margin: 0; font-size: 24px;">¡Gracias por tu compra!</h1>
+          </div>
+          <div style="padding: 24px;">
+            <p>Hola ${user.name},</p>
+            <p>Hemos recibido tu pedido <strong>#${order.id}</strong> y lo estamos procesando.</p>
+            
+            <h2 style="font-size:16px; margin-top:24px; color:#555;">Resumen de tu pedido:</h2>
+            <table style="width:100%; border-collapse:collapse; margin-bottom:24px;">
+              <thead>
+                <tr style="background:#f9f9f9;">
+                  <th style="padding:8px; text-align:left; border-bottom:1px solid #ddd;">Producto</th>
+                  <th style="padding:8px; text-align:center; border-bottom:1px solid #ddd;">Cant.</th>
+                  <th style="padding:8px; text-align:right; border-bottom:1px solid #ddd;">Precio</th>
+                  <th style="padding:8px; text-align:right; border-bottom:1px solid #ddd;">Total</th>
+                </tr>
+              </thead>
+              <tbody>${itemRows}</tbody>
+            </table>
+
+            <div style="width:100%; text-align:right; line-height: 1.6;">
+              <p style="margin:4px 0; color:#555;">Subtotal productos: $${productsTotal.toLocaleString('es-CO')}</p>
+              <p style="margin:4px 0; color:#555;">Envío: $${shippingCost.toLocaleString('es-CO')}</p>
+              <h3 style="margin:12px 0 0 0; font-size:18px;">Total Pagado: $${order.total.toLocaleString('es-CO')}</h3>
+            </div>
+
+            <hr style="margin:24px 0; border:none; border-top:1px solid #ddd;" />
+            <p style="margin-bottom:8px;">Te notificaremos en cuanto tu pedido sea enviado.</p>
+            <p style="margin:0; font-weight:bold;">Gracias por elegir Nimvu.</p>
+          </div>
         </div>
       `,
     });
@@ -66,6 +132,9 @@ export class MailService {
 
     // Parse shippingAddress (stored as JSON)
     const addr = order.shippingAddress as any;
+    const shippingCost = addr?.shippingCost || 0;
+    const productsTotal = order.total - shippingCost;
+
     const addressLine = addr
       ? [addr.address_1, addr.address_2, addr.city, addr.province, addr.country]
           .filter(Boolean)
@@ -79,12 +148,16 @@ export class MailService {
         const productName = item.product?.name ?? 'Producto';
         const variantName = item.variant?.name ? ` (${item.variant.name})` : '';
         const subtotal = (item.price * item.quantity).toLocaleString('es-CO');
+        const imageUrl = item.product?.images?.[0] || 'https://via.placeholder.com/60';
         return `
           <tr>
-            <td style="padding:8px;border-bottom:1px solid #eee;">${productName}${variantName}</td>
-            <td style="padding:8px;border-bottom:1px solid #eee;text-align:center;">${item.quantity}</td>
-            <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">$${item.price.toLocaleString('es-CO')}</td>
-            <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">$${subtotal}</td>
+            <td style="padding:12px 8px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:12px;">
+              <img src="${imageUrl}" alt="${productName}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;"/>
+              <span>${productName}${variantName}</span>
+            </td>
+            <td style="padding:12px 8px;border-bottom:1px solid #eee;text-align:center;">${item.quantity}</td>
+            <td style="padding:12px 8px;border-bottom:1px solid #eee;text-align:right;">$${item.price.toLocaleString('es-CO')}</td>
+            <td style="padding:12px 8px;border-bottom:1px solid #eee;text-align:right;">$${subtotal}</td>
           </tr>`;
       })
       .join('');
@@ -133,8 +206,12 @@ export class MailService {
               <tbody>${itemRows}</tbody>
             </table>
 
-            <div style="text-align:right; font-size:18px; font-weight:bold;">
-              Total: $${order.total.toLocaleString('es-CO')}
+            <div style="text-align:right; line-height:1.6; font-size:15px;">
+              <div style="color:#666;">Subtotal: $${productsTotal.toLocaleString('es-CO')}</div>
+              <div style="color:#666; margin-bottom:8px;">Envío: $${shippingCost.toLocaleString('es-CO')}</div>
+              <div style="font-size:18px; font-weight:bold;">
+                Total: $${order.total.toLocaleString('es-CO')}
+              </div>
             </div>
 
             <hr style="margin:24px 0; border:none; border-top:1px solid #ddd;" />

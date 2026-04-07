@@ -49,4 +49,35 @@ export class CreateOrderDto {
   @IsEnum(PaymentMethod)
   @IsOptional()
   paymentMethod?: PaymentMethod;
+
+  @IsNumber()
+  @IsOptional()
+  shippingCost?: number;
+}
+
+export class CreateGuestOrderDto {
+  @IsString()
+  @IsNotEmpty()
+  email: string;
+
+  @IsObject()
+  @IsNotEmpty()
+  shippingAddress: object; // Accepts the address object
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => OrderItemDto)
+  items: OrderItemDto[];
+
+  @IsString()
+  @IsOptional()
+  paymentId?: string;
+
+  @IsEnum(PaymentMethod)
+  @IsOptional()
+  paymentMethod?: PaymentMethod;
+
+  @IsNumber()
+  @IsOptional()
+  shippingCost?: number;
 }

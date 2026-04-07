@@ -4,10 +4,11 @@ import {
   NotFoundException,
   Inject,
 } from '@nestjs/common';
-import { CreateOrderDto } from './dto/create-order.dto';
+import { CreateOrderDto, CreateGuestOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class OrdersService {
@@ -16,8 +17,69 @@ export class OrdersService {
     private readonly mailService: MailService,
   ) { }
 
+  async createGuestOrder(createGuestOrderDto: CreateGuestOrderDto) {
+    const { email, items, paymentId, paymentMethod, shippingAddress, shippingCost } = createGuestOrderDto;
+
+    // Verificar si el usuario ya existe
+    let user = await this.prisma.user.findUnique({ where: { email } });
+    let isNewUser = false;
+    let generatedPassword = '';
+
+    if (!user) {
+      // Si no existe, crear usuario
+      isNewUser = true;
+      generatedPassword = Math.random().toString(36).slice(-8); // simple 8 char password
+      const hashedPassword = await bcrypt.hash(generatedPassword, 10);
+      
+      const addr = shippingAddress as any;
+      const nameFromAddress = addr.first_name ? `${addr.first_name} ${addr.last_name || ''}`.trim() : 'Invitado';
+
+      user = await this.prisma.user.create({
+        data: {
+          email,
+          password: hashedPassword,
+          name: nameFromAddress,
+          role: 'USER',
+          addresses: {
+            create: [
+              {
+                street: addr.address_1 || '',
+                city: addr.city || '',
+                state: addr.province || '',
+                zip: addr.postal_code || '',
+                country: 'Colombia',
+                phone: addr.phone || '',
+              }
+            ]
+          }
+        }
+      });
+    }
+
+    // Delegation to standard order creation using the existing method context,
+    // avoiding code duplication of the large logic block.
+    const createOrderDto: CreateOrderDto = {
+      userId: user.id,
+      items,
+      paymentId,
+      paymentMethod,
+      shippingAddress,
+      shippingCost,
+    };
+
+    const order = await this.create(createOrderDto);
+
+    // Send emails: the standard create method already sends order confirmation and admin alert.
+    // If it's a new user, we also send the guest welcome email.
+    if (isNewUser) {
+      this.mailService.sendGuestWelcome(user, generatedPassword);
+    }
+
+    return order;
+  }
+
   async create(createOrderDto: CreateOrderDto) {
-    const { userId, items, paymentId, paymentMethod, shippingAddress } =
+    const { userId, items, paymentId, paymentMethod, shippingAddress, shippingCost } =
       createOrderDto;
 
     // 1. Validate User exists
@@ -119,14 +181,20 @@ export class OrdersService {
         });
       }
 
+      const finalTotal = total + (shippingCost || 0);
+      const addressWithShipping = {
+        ...(shippingAddress as any),
+        shippingCost: shippingCost || 0,
+      };
+
       // Create Order
       return tx.order.create({
         data: {
           userId,
-          total,
+          total: finalTotal,
           paymentId,
           paymentMethod, // Inherited newly parsed tracking prop
-          shippingAddress, // Save validated address snapshot
+          shippingAddress: addressWithShipping, // Save validated address snapshot
           items: {
             create: orderItemsData,
           },
@@ -134,7 +202,7 @@ export class OrdersService {
         include: {
           items: {
             include: {
-              product: { select: { name: true } },
+              product: { select: { name: true, images: true } },
               variant: { select: { name: true } },
             },
           },
@@ -142,9 +210,11 @@ export class OrdersService {
       });
     });
 
-    // Send emails
-    this.mailService.sendOrderConfirmation(user, order);
-    this.mailService.sendAdminOrderAlert(user, order);
+    // Send emails ONLY if it is Cash On Delivery, otherwise wait for Wompi payment confirmation
+    if (paymentMethod === 'CASH_ON_DELIVERY') {
+      this.mailService.sendOrderConfirmation(user, order);
+      this.mailService.sendAdminOrderAlert(user, order);
+    }
 
     return order;
   }
@@ -154,8 +224,8 @@ export class OrdersService {
     return this.prisma.order.findMany({
       where,
       include: {
-        items: { include: { product: true } },
-        user: { select: { id: true, email: true, name: true } },
+        items: { include: { product: true, variant: true } },
+        user: { select: { id: true, email: true, name: true, taxId: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -165,20 +235,42 @@ export class OrdersService {
     return this.prisma.order.findUnique({
       where: { id },
       include: {
-        items: { include: { product: true } },
-        user: { select: { id: true, email: true, name: true } },
+        items: { include: { product: true, variant: true } },
+        user: { select: { id: true, email: true, name: true, taxId: true } },
       },
     });
   }
 
-  update(id: string, updateOrderDto: UpdateOrderDto) {
-    return this.prisma.order.update({
+  async update(id: string, updateOrderDto: UpdateOrderDto) {
+    const updated = await this.prisma.order.update({
       where: { id },
       data: updateOrderDto,
+      include: {
+        items: {
+          include: {
+            product: { select: { name: true, images: true } },
+            variant: { select: { name: true } },
+          },
+        },
+        user: true,
+      },
     });
+
+    // Automatically send purchase confirmation if Wompi payment is successfully processed and the order hits PROCESSING
+    if (updateOrderDto.status === 'PROCESSING') {
+      this.mailService.sendOrderConfirmation(updated.user, updated);
+      this.mailService.sendAdminOrderAlert(updated.user, updated);
+    }
+
+    return updated;
   }
 
-  remove(id: string) {
+  async remove(id: string) {
+    // Delete referenced order items first to avoid foreign key constraints
+    await this.prisma.orderItem.deleteMany({
+      where: { orderId: id },
+    });
+
     return this.prisma.order.delete({
       where: { id },
     });
