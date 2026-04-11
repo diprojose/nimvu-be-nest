@@ -1,6 +1,7 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
+import { MailService } from '../mail/mail.service';
 import { createHash } from 'crypto';
 
 @Injectable()
@@ -10,6 +11,7 @@ export class WompiService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly mailService: MailService,
   ) {}
 
   async handleWebhook(data: any) {
@@ -119,13 +121,29 @@ export class WompiService {
     }
 
     if (newStatus !== order.status) {
-      await this.prisma.order.update({
+      const updatedOrder = await this.prisma.order.update({
         where: { id: order.id },
         data: {
           status: newStatus,
           paymentId: id, // Ensure we save the Wompi transaction ID
         },
+        include: {
+          items: {
+            include: {
+              product: { select: { name: true, images: true } },
+              variant: { select: { name: true } },
+            },
+          },
+          user: true,
+        },
       });
+
+      // Send purchase confirmation emails when payment is approved
+      if (newStatus === 'PROCESSING') {
+        this.mailService.sendOrderConfirmation(updatedOrder.user, updatedOrder);
+        this.mailService.sendAdminOrderAlert(updatedOrder.user, updatedOrder);
+        this.logger.log(`Order confirmation emails sent for order ${order.id}`);
+      }
 
       // If cancelled, restore stock
       if (newStatus === 'CANCELLED' && order.status !== 'CANCELLED') {
