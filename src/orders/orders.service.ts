@@ -210,10 +210,13 @@ export class OrdersService {
       });
     });
 
-    // Send emails ONLY if it is Cash On Delivery, otherwise wait for Wompi payment confirmation
+    // Always notify the admin when a new order is created (regardless of payment method)
+    this.mailService.sendAdminOrderAlert(user, order);
+
+    // Send customer confirmation immediately only for Cash On Delivery;
+    // for Wompi payments, the customer email is sent once the order moves to PROCESSING
     if (paymentMethod === 'CASH_ON_DELIVERY') {
       this.mailService.sendOrderConfirmation(user, order);
-      this.mailService.sendAdminOrderAlert(user, order);
     }
 
     return order;
@@ -256,10 +259,10 @@ export class OrdersService {
       },
     });
 
-    // Automatically send purchase confirmation if Wompi payment is successfully processed and the order hits PROCESSING
+    // When the order moves to PROCESSING, send confirmation to the customer
+    // (admin was already notified when the order was created in PENDING)
     if (updateOrderDto.status === 'PROCESSING') {
       this.mailService.sendOrderConfirmation(updated.user, updated);
-      this.mailService.sendAdminOrderAlert(updated.user, updated);
     }
 
     return updated;
