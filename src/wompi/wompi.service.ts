@@ -138,11 +138,11 @@ export class WompiService {
         },
       });
 
-      // Send purchase confirmation emails when payment is approved
+      // Send customer confirmation when payment is approved
+      // (admin was already notified when the order was created in PENDING)
       if (newStatus === 'PROCESSING') {
         this.mailService.sendOrderConfirmation(updatedOrder.user, updatedOrder);
-        this.mailService.sendAdminOrderAlert(updatedOrder.user, updatedOrder);
-        this.logger.log(`Order confirmation emails sent for order ${order.id}`);
+        this.logger.log(`Order confirmation email sent to customer for order ${order.id}`);
       }
 
       // If cancelled, restore stock
