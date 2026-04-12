@@ -34,13 +34,16 @@ model User {
   name          String?
   role          Role      @default(USER)
   // B2B Specifics
-  companyName   String?
-  taxId         String?
-  isB2BApproved Boolean   @default(false)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  orders        Order[]
-  addresses     Address[]
+  companyName         String?
+  taxId               String?
+  isB2BApproved       Boolean   @default(false)
+  // Password Reset
+  passwordResetToken  String?
+  passwordResetExpiry DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  orders              Order[]
+  addresses           Address[]
 }
 
 model Product {

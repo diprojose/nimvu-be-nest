@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E \"\\\\.\\(tsx?|jsx?\\)$\")",
+      "Bash(npx prisma:*)",
+      "Bash(node_modules/.bin/prisma migrate:*)",
+      "Read(//mnt/c/Users/USUARIO/AppData/Local/**)",
+      "Bash(export PATH=\"$PATH:/c/Program Files/nodejs\")",
+      "Bash(node node_modules/.bin/prisma migrate dev --name add_password_reset_token)",
+      "Bash(node node_modules/prisma/build/index.js migrate dev --name add_password_reset_token)",
+      "Bash(node node_modules/prisma/build/index.js db push)"
+    ]
+  }
+}

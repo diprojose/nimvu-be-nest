@@ -77,4 +77,30 @@ export class UsersService {
       where: { id },
     });
   }
+
+  async saveResetToken(email: string, token: string, expiry: Date) {
+    return this.prisma.user.update({
+      where: { email },
+      data: {
+        passwordResetToken: token,
+        passwordResetExpiry: expiry,
+      },
+    });
+  }
+
+  async findByResetToken(token: string) {
+    return this.prisma.user.findFirst({
+      where: { passwordResetToken: token },
+    });
+  }
+
+  async clearResetToken(userId: string) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        passwordResetToken: null,
+        passwordResetExpiry: null,
+      },
+    });
+  }
 }

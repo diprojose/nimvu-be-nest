@@ -127,6 +127,36 @@ export class MailService {
     });
   }
 
+  async sendPasswordReset(user: any, resetUrl: string) {
+    await this.mailerService.sendMail({
+      to: user.email,
+      subject: 'Restablecer tu contraseña - Nimvu',
+      html: `
+        <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+          <div style="background: #000; padding: 20px 24px; border-radius: 8px 8px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 22px; letter-spacing: 2px;">NIMVU</h1>
+          </div>
+          <div style="background: #f9f9f9; padding: 32px 24px; border: 1px solid #eee; border-top: none; border-radius: 0 0 8px 8px;">
+            <h2 style="color: #000; font-size: 20px; margin-top: 0;">¿Olvidaste tu contraseña?</h2>
+            <p style="margin-bottom: 8px;">Hola${user.name ? ` ${user.name}` : ''},</p>
+            <p>Recibimos una solicitud para restablecer la contraseña de tu cuenta. Haz clic en el botón de abajo para crear una nueva contraseña.</p>
+            <div style="text-align: center; margin: 32px 0;">
+              <a href="${resetUrl}"
+                 style="background: #000; color: #fff; padding: 14px 36px; text-decoration: none; font-weight: bold; letter-spacing: 2px; font-size: 12px; text-transform: uppercase; display: inline-block;">
+                Restablecer contraseña
+              </a>
+            </div>
+            <p style="color: #888; font-size: 13px;">Este enlace expirará en <strong>1 hora</strong>. Si no solicitaste el cambio de contraseña, puedes ignorar este correo con tranquilidad.</p>
+            <hr style="margin: 24px 0; border: none; border-top: 1px solid #ddd;" />
+            <p style="color: #aaa; font-size: 12px; margin: 0;">Si el botón no funciona, copia y pega este enlace en tu navegador:<br/>
+              <a href="${resetUrl}" style="color: #666; word-break: break-all;">${resetUrl}</a>
+            </p>
+          </div>
+        </div>
+      `,
+    });
+  }
+
   async sendAdminOrderAlert(user: any, order: any) {
     const adminEmail = process.env.MAIL_ADMIN || 'admin@nimvu.com';
 

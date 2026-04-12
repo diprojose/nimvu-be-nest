@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc -l \"/c/Users/USUARIO/Documents/Nimvu/WEB/nimvu-react-admin/src/pages\"/*.tsx)"
+    ]
+  }
+}
