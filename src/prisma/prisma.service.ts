@@ -4,10 +4,11 @@ import { PrismaClient } from '@prisma/client';
 function buildDatabaseUrl(): string {
   const base = process.env.DATABASE_URL!;
   const url = new URL(base);
-  // Supabase Pro permite hasta ~200 conexiones en el pooler Session mode.
-  // Con Render Starter (2 vCPU) y tráfico real de ventas, 20 es cómodo y seguro.
-  url.searchParams.set('connection_limit', '20');
-  // 30s para esperar una conexión libre antes de fallar.
+  // Transaction mode (puerto 6543) + pgbouncer=true:
+  // Las conexiones se liberan tras cada query/transacción y se reutilizan.
+  // Con 50 conexiones lógicas en Prisma, Supavisor las multiplexa sobre
+  // ~20 conexiones Postgres reales → soporta cientos de usuarios simultáneos.
+  url.searchParams.set('connection_limit', '50');
   url.searchParams.set('pool_timeout', '30');
   return url.toString();
 }
@@ -28,10 +29,8 @@ export class PrismaService
   }
 
   async onModuleInit() {
-    // Con Supabase Pro la BD nunca se pausa, así que pre-calentamos el pool
-    // al arrancar para que las primeras peticiones no esperen establecer conexiones.
     await this.$connect();
-    this.logger.log('Database connection pool initialized');
+    this.logger.log('Database connection pool initialized (Transaction mode)');
   }
 
   async onModuleDestroy() {
