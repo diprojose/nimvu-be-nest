@@ -17,6 +17,94 @@ export class OrdersService {
     private readonly mailService: MailService,
   ) { }
 
+  async createManualOrder(dto: import('./dto/create-manual-order.dto').CreateManualOrderDto) {
+    const { customerName, customerPhone, customerEmail, address, city, state, items, paymentMethod, shippingCost, notes } = dto;
+
+    // Buscar o crear usuario. Si no hay email, generamos uno interno por teléfono.
+    const emailKey = customerEmail || `wa_${customerPhone.replace(/\D/g, '')}@whatsapp.nimvu`;
+    let user = await this.prisma.user.findUnique({ where: { email: emailKey } });
+
+    if (!user) {
+      const hashedPassword = await bcrypt.hash(Math.random().toString(36).slice(-10), 10);
+      user = await this.prisma.user.create({
+        data: {
+          email: emailKey,
+          password: hashedPassword,
+          name: customerName,
+          role: 'USER',
+          addresses: {
+            create: [{
+              street: address,
+              city,
+              state,
+              zip: '',
+              country: 'Colombia',
+              phone: customerPhone,
+            }],
+          },
+        },
+      });
+    }
+
+    // Calcular total y construir items sin validar stock (orden administrativa)
+    let total = 0;
+    const orderItemsData: { productId: string; variantId?: string; quantity: number; price: number }[] = [];
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const item of items) {
+        total += item.price * item.quantity;
+        orderItemsData.push({
+          productId: item.productId,
+          variantId: item.variantId,
+          quantity: item.quantity,
+          price: item.price,
+        });
+
+        // Descontar stock para mantener inventario preciso
+        if (item.variantId) {
+          await tx.variant.update({
+            where: { id: item.variantId },
+            data: { stock: { decrement: item.quantity } },
+          });
+        } else {
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { stock: { decrement: item.quantity } },
+          });
+        }
+      }
+    });
+
+    const finalTotal = total + (shippingCost || 0);
+    const shippingAddress = {
+      first_name: customerName.split(' ')[0] || customerName,
+      last_name: customerName.split(' ').slice(1).join(' ') || '',
+      address_1: address,
+      city,
+      province: state,
+      country_code: 'CO',
+      phone: customerPhone,
+      shippingCost: shippingCost || 0,
+      ...(notes ? { notes } : {}),
+    };
+
+    const order = await this.prisma.order.create({
+      data: {
+        userId: user.id,
+        total: finalTotal,
+        paymentMethod: paymentMethod || 'WHATSAPP',
+        shippingAddress,
+        items: { create: orderItemsData },
+      },
+      include: {
+        items: { include: { product: { select: { name: true, images: true } }, variant: { select: { name: true } } } },
+        user: { select: { id: true, email: true, name: true } },
+      },
+    });
+
+    return order;
+  }
+
   async createGuestOrder(createGuestOrderDto: CreateGuestOrderDto) {
     const { email, items, paymentId, paymentMethod, shippingAddress, shippingCost } = createGuestOrderDto;
 

@@ -17,6 +17,7 @@ enum Role {
 enum PaymentMethod {
   WOMPI
   CASH_ON_DELIVERY
+  WHATSAPP
 }
 
 enum OrderStatus {

@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto, CreateGuestOrderDto } from './dto/create-order.dto';
+import { CreateManualOrderDto } from './dto/create-manual-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { AuthGuard } from '@nestjs/passport';
 
@@ -27,6 +28,12 @@ export class OrdersController {
   @Post('guest')
   createGuest(@Body() createGuestOrderDto: CreateGuestOrderDto) {
     return this.ordersService.createGuestOrder(createGuestOrderDto);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('manual')
+  createManual(@Body() createManualOrderDto: CreateManualOrderDto) {
+    return this.ordersService.createManualOrder(createManualOrderDto);
   }
 
   @UseGuards(AuthGuard('jwt'))

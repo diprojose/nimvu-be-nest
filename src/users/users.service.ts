@@ -40,7 +40,7 @@ export class UsersService {
         createdAt: true,
         updatedAt: true,
       },
-      // Exclude password from list
+      orderBy: { createdAt: 'desc' },
     });
   }
 
