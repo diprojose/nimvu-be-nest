@@ -2,9 +2,9 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
-  Inject,
 } from '@nestjs/common';
 import { CreateOrderDto, CreateGuestOrderDto } from './dto/create-order.dto';
+import { CreateManualOrderDto } from './dto/create-manual-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
@@ -17,7 +17,7 @@ export class OrdersService {
     private readonly mailService: MailService,
   ) { }
 
-  async createManualOrder(dto: import('./dto/create-manual-order.dto').CreateManualOrderDto) {
+  async createManualOrder(dto: CreateManualOrderDto) {
     const { customerName, customerPhone, customerEmail, address, city, state, items, paymentMethod, shippingCost, notes } = dto;
 
     // Buscar o crear usuario. Si no hay email, generamos uno interno por teléfono.
