@@ -38,7 +38,7 @@ export class WompiService {
       );
     }
 
-    const { id, status, reference, amount_in_cents, currency } = transaction;
+    const { id, status, reference, amount_in_cents } = transaction;
     const timestamp = data.timestamp;
     const signatureChecksum = data.signature.checksum;
 
@@ -140,8 +140,16 @@ export class WompiService {
 
       // Enviar correos de confirmación cuando el pago es aprobado
       if (newStatus === 'PROCESSING') {
-        this.mailService.sendOrderConfirmation(updatedOrder.user, updatedOrder);
-        this.mailService.sendAdminOrderAlert(updatedOrder.user, updatedOrder);
+        try {
+          await this.mailService.sendOrderConfirmation(updatedOrder.user, updatedOrder);
+          await this.mailService.sendAdminOrderAlert(updatedOrder.user, updatedOrder);
+          this.logger.log(`Confirmation emails sent for order ${order.id}`);
+        } catch (emailError) {
+          this.logger.error(
+            `Failed to send confirmation emails for order ${order.id}`,
+            emailError,
+          );
+        }
       }
 
       // Si se cancela, restaurar stock
@@ -163,7 +171,7 @@ export class WompiService {
 
     if (!order) return;
 
-    const transaction = this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx) => {
       for (const item of order.items) {
         if (item.variantId) {
           await tx.variant.update({
@@ -180,6 +188,5 @@ export class WompiService {
     });
 
     this.logger.log(`Stock restored for order ${orderId}`);
-    return transaction;
   }
 }
