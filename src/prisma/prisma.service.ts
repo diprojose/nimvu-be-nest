@@ -1,14 +1,14 @@
-import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
 function buildDatabaseUrl(): string {
   const base = process.env.DATABASE_URL!;
   const url = new URL(base);
-  // Supabase Pro soporta hasta 200 conexiones directas. Con Render Starter (2 vCPU)
-  // un pool de 10 es más que suficiente y deja amplio margen para escalar.
-  url.searchParams.set('connection_limit', '10');
-  // Tiempo de espera para obtener una conexión del pool (en segundos).
-  url.searchParams.set('pool_timeout', '15');
+  // Supabase Pro permite hasta ~200 conexiones en el pooler Session mode.
+  // Con Render Starter (2 vCPU) y tráfico real de ventas, 20 es cómodo y seguro.
+  url.searchParams.set('connection_limit', '20');
+  // 30s para esperar una conexión libre antes de fallar.
+  url.searchParams.set('pool_timeout', '30');
   return url.toString();
 }
 
@@ -17,6 +17,8 @@ export class PrismaService
   extends PrismaClient
   implements OnModuleInit, OnModuleDestroy
 {
+  private readonly logger = new Logger(PrismaService.name);
+
   constructor() {
     super({
       datasources: {
@@ -26,8 +28,10 @@ export class PrismaService
   }
 
   async onModuleInit() {
-    // Lazy connections: Prisma conecta solo cuando hace la primera query.
-    // Esto recupera bien las conexiones cortadas por inactividad del pooler de Supabase.
+    // Con Supabase Pro la BD nunca se pausa, así que pre-calentamos el pool
+    // al arrancar para que las primeras peticiones no esperen establecer conexiones.
+    await this.$connect();
+    this.logger.log('Database connection pool initialized');
   }
 
   async onModuleDestroy() {
