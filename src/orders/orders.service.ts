@@ -353,6 +353,31 @@ export class OrdersService {
     return updated;
   }
 
+  async sendRecoveryEmail(orderId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        user: { select: { id: true, email: true, name: true } },
+        items: {
+          include: {
+            product: { select: { name: true, images: true } },
+            variant: { select: { name: true } },
+          },
+        },
+      },
+    });
+
+    if (!order) throw new NotFoundException('Order not found');
+
+    await this.mailService.sendAbandonedCartEmail(order.user, order);
+    await this.prisma.order.update({
+      where: { id: orderId },
+      data: { recoveryEmailSent: true },
+    });
+
+    return { sent: true };
+  }
+
   async remove(id: string) {
     // Delete referenced order items first to avoid foreign key constraints
     await this.prisma.orderItem.deleteMany({

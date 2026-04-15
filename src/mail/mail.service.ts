@@ -157,6 +157,63 @@ export class MailService {
     });
   }
 
+  async sendAbandonedCartEmail(user: any, order: any) {
+    const itemRows = (order.items ?? [])
+      .map((item: any) => {
+        const productName = item.product?.name ?? 'Producto';
+        const variantName = item.variant?.name ? ` (${item.variant.name})` : '';
+        const imageUrl = item.product?.images?.[0] || 'https://via.placeholder.com/60';
+        return `
+          <tr>
+            <td style="padding:10px 8px;border-bottom:1px solid #eee;">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <img src="${imageUrl}" alt="${productName}" style="width:50px;height:50px;object-fit:cover;border-radius:4px;"/>
+                <span style="font-size:14px;">${productName}${variantName} x${item.quantity}</span>
+              </div>
+            </td>
+            <td style="padding:10px 8px;border-bottom:1px solid #eee;text-align:right;font-weight:bold;">
+              $${(item.price * item.quantity).toLocaleString('es-CO')}
+            </td>
+          </tr>`;
+      })
+      .join('');
+
+    await this.mailerService.sendMail({
+      to: user.email,
+      subject: '¿Olvidaste completar tu compra? 🛍️',
+      html: `
+        <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 8px; overflow: hidden;">
+          <div style="background: #000; padding: 24px; text-align: center;">
+            <h1 style="color: #fff; margin: 0; font-size: 22px; letter-spacing: 2px;">NIMVU</h1>
+          </div>
+          <div style="padding: 32px 24px;">
+            <h2 style="margin-top: 0; font-size: 20px;">Hola${user.name ? ` ${user.name.split(' ')[0]}` : ''}, dejaste algo pendiente</h2>
+            <p style="color: #555; line-height: 1.6;">Notamos que iniciaste una compra pero no llegaste a completarla. Tus productos todavía te esperan:</p>
+
+            <table style="width:100%; border-collapse:collapse; margin: 20px 0;">
+              <tbody>${itemRows}</tbody>
+            </table>
+
+            <div style="text-align: right; padding: 8px 0 24px 0; font-size: 18px; font-weight: bold;">
+              Total: $${order.total.toLocaleString('es-CO')}
+            </div>
+
+            <div style="text-align: center; margin: 24px 0;">
+              <a href="https://www.somosnimvu.com"
+                 style="background: #000; color: #fff; padding: 14px 40px; text-decoration: none; font-weight: bold; letter-spacing: 1px; font-size: 13px; text-transform: uppercase; display: inline-block; border-radius: 2px;">
+                Completar mi compra
+              </a>
+            </div>
+
+            <p style="color: #888; font-size: 13px; text-align: center; margin-top: 24px;">
+              Si ya completaste tu compra o decidiste no continuar, ignora este mensaje.
+            </p>
+          </div>
+        </div>
+      `,
+    });
+  }
+
   async sendAdminOrderAlert(user: any, order: any) {
     const adminEmail = process.env.MAIL_ADMIN || 'admin@nimvu.com';
 

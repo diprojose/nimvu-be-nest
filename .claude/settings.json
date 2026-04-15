@@ -10,7 +10,9 @@
       "Bash(node node_modules/prisma/build/index.js migrate dev --name add_password_reset_token)",
       "Bash(node node_modules/prisma/build/index.js db push)",
       "Bash(node node_modules/prisma/build/index.js db push --skip-generate)",
-      "Bash(node node_modules/prisma/build/index.js generate)"
+      "Bash(node node_modules/prisma/build/index.js generate)",
+      "Bash(node -e \"const p = require\\('./package.json'\\); console.log\\(JSON.stringify\\(p.dependencies, null, 2\\)\\)\")",
+      "Bash(npm install:*)"
     ]
   }
 }

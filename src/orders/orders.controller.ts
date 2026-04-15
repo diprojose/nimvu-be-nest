@@ -59,6 +59,12 @@ export class OrdersController {
   }
 
   @UseGuards(AuthGuard('jwt'))
+  @Post(':id/send-recovery')
+  sendRecoveryEmail(@Param('id') id: string) {
+    return this.ordersService.sendRecoveryEmail(id);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.ordersService.remove(id);

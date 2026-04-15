@@ -122,17 +122,18 @@ model Variant {
 }
 
 model Order {
-  id              String        @id @default(uuid())
-  userId          String
-  user            User          @relation(fields: [userId], references: [id])
-  status          OrderStatus   @default(PENDING)
-  total           Float
-  paymentId       String?       @unique
-  paymentMethod   PaymentMethod @default(WOMPI)
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  shippingAddress Json?
-  items           OrderItem[]
+  id                  String        @id @default(uuid())
+  userId              String
+  user                User          @relation(fields: [userId], references: [id])
+  status              OrderStatus   @default(PENDING)
+  total               Float
+  paymentId           String?       @unique
+  paymentMethod       PaymentMethod @default(WOMPI)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  shippingAddress     Json?
+  recoveryEmailSent   Boolean       @default(false)
+  items               OrderItem[]
 }
 
 model OrderItem {
