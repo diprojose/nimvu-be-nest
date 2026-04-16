@@ -93,7 +93,7 @@ export class ProductsService {
 
         if (variants !== undefined) {
           // Delete variants whose SKU is no longer in the submitted list
-          const submittedSkus = variants.map((v) => v.sku);
+          const submittedSkus = variants.map((v) => v.sku).filter((s): s is string => !!s);
           await prisma.variant.deleteMany({
             where: { productId: id, sku: { notIn: submittedSkus } },
           });
@@ -126,7 +126,7 @@ export class ProductsService {
       return updated;
     } catch (error) {
       console.error('Error updating product:', error);
-      throw new InternalServerErrorException(error.message);
+      throw new InternalServerErrorException(error instanceof Error ? error.message : String(error));
     }
   }
 
