@@ -1,12 +1,15 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
-// removed BulkB2BPricesDto import
 import { PrismaService } from '../prisma/prisma.service';
+import { RevalidationService } from './revalidation.service';
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly revalidation: RevalidationService,
+  ) {}
 
   private slugify(text: string): string {
     return text
@@ -20,21 +23,22 @@ export class ProductsService {
       .replace(/[\u0300-\u036f]/g, ''); // Removes diacritical marks
   }
 
-  create(createProductDto: CreateProductDto) {
+  async create(createProductDto: CreateProductDto) {
     const { variants, ...productData } = createProductDto;
     const slug = productData.slug || this.slugify(productData.name);
 
-    return this.prisma.product.create({
+    const product = await this.prisma.product.create({
       data: {
         ...productData,
         slug,
-        categoryId: createProductDto.categoryId, // Save categoryId
-        variants: {
-          create: variants,
-        },
+        categoryId: createProductDto.categoryId,
+        variants: { create: variants },
       },
       include: { variants: true },
     });
+
+    this.revalidation.revalidate(['products', 'collections']);
+    return product;
   }
 
   findAll(isB2BContext: boolean = false) {
@@ -80,48 +84,63 @@ export class ProductsService {
     }
 
     try {
-      return await this.prisma.$transaction(async (prisma) => {
+      const updated = await this.prisma.$transaction(async (prisma) => {
         // Update product basic info
         const product = await prisma.product.update({
           where: { id },
           data: data,
         });
 
-        // Handle variants if provided
-        if (variants && variants.length > 0) {
+        if (variants !== undefined) {
+          // Delete variants that were removed in the form (present in DB but not in submitted list)
+          const submittedIds = variants
+            .map((v) => (v as any).id)
+            .filter(Boolean) as string[];
+
+          if (submittedIds.length > 0) {
+            await prisma.variant.deleteMany({
+              where: { productId: id, id: { notIn: submittedIds } },
+            });
+          } else if (variants.length === 0) {
+            // All variants were removed
+            await prisma.variant.deleteMany({ where: { productId: id } });
+          }
+
+          // Upsert remaining/new variants
           for (const variant of variants) {
-            const { id: variantId, ...variantData } = variant;
+            const { id: variantId, ...variantData } = variant as any;
             if (variantId) {
-              // Update existing variant by ID
               await prisma.variant.update({
                 where: { id: variantId },
                 data: variantData,
               });
             } else {
-              // Upsert by SKU: Update if exists, Create if not
-              // This handles cases where the frontend sends an existing variant without ID
               await prisma.variant.upsert({
                 where: { sku: variantData.sku },
                 update: variantData,
-                create: {
-                  ...(variantData as any),
-                  productId: id,
-                },
+                create: { ...variantData, productId: id },
               });
             }
           }
         }
+
         return product;
       });
+
+      const tags = ['products', 'collections'];
+      if (updated.slug) tags.push(`product-${updated.slug}`);
+      this.revalidation.revalidate(tags);
+
+      return updated;
     } catch (error) {
       console.error('Error updating product:', error);
       throw new InternalServerErrorException(error.message);
     }
   }
 
-  remove(id: string) {
-    return this.prisma.product.delete({
-      where: { id },
-    });
+  async remove(id: string) {
+    const product = await this.prisma.product.delete({ where: { id } });
+    this.revalidation.revalidate(['products', 'collections']);
+    return product;
   }
 }
