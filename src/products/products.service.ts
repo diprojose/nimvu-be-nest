@@ -92,19 +92,11 @@ export class ProductsService {
         });
 
         if (variants !== undefined) {
-          // Delete variants that were removed in the form (present in DB but not in submitted list)
-          const submittedIds = variants
-            .map((v) => (v as any).id)
-            .filter(Boolean) as string[];
-
-          if (submittedIds.length > 0) {
-            await prisma.variant.deleteMany({
-              where: { productId: id, id: { notIn: submittedIds } },
-            });
-          } else if (variants.length === 0) {
-            // All variants were removed
-            await prisma.variant.deleteMany({ where: { productId: id } });
-          }
+          // Delete variants whose SKU is no longer in the submitted list
+          const submittedSkus = variants.map((v) => v.sku);
+          await prisma.variant.deleteMany({
+            where: { productId: id, sku: { notIn: submittedSkus } },
+          });
 
           // Upsert remaining/new variants
           for (const variant of variants) {
