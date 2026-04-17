@@ -45,6 +45,7 @@ export class ProductsService {
     const where = isB2BContext ? undefined : { isB2BOnly: false };
     return this.prisma.product.findMany({
       where,
+      orderBy: { createdAt: 'asc' },
       include: { variants: true, category: true },
     });
   }
