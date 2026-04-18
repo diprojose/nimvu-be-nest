@@ -59,39 +59,24 @@ export class WompiService {
       .digest('hex');
 
     if (calculatedChecksum !== signatureChecksum) {
-      this.logger.error('Invalid signature for Wompi webhook');
-      // Uncomment to enforce signature validation after testing
-      // throw new BadRequestException('Invalid signature');
-      // For now, let's log it but verify if user wants strict mode. User just wants it to work.
-      // We SHOULD enforce it for security.
+      this.logger.error(
+        `Invalid signature for Wompi webhook. Expected: ${calculatedChecksum}, Received: ${signatureChecksum}`,
+      );
+      throw new BadRequestException('Invalid signature');
     }
 
     this.logger.log(
       `Processing transaction ${id} with status ${status} for reference ${reference}`,
     );
 
-    // Update Order
-    // Assuming 'reference' is the Order ID or Payment ID.
-    // We try to find by ID first (if reference maps to orderId) or paymentId.
-
-    // Let's assume reference is the order ID for now as it's common practice.
-    // Or we look up by paymentId if we stored the transaction ID there previously?
-    // In create-order, we have `paymentId` which is optional. Ideally we saved the wompi transaction ID there?
-    // If the payment initiated on client side, we might not have the wompi transaction ID yet.
-    // But we usually send the `reference` as our unique order ID.
-
-    const order = await this.prisma.order.findFirst({
-      where: {
-        OR: [
-          { id: reference },
-          { paymentId: id }, // If we stored the Wompi ID in paymentId
-        ],
-      },
+    // reference = Order ID (UUID) — el store lo envía como reference al crear el widget
+    const order = await this.prisma.order.findUnique({
+      where: { id: reference },
     });
 
     if (!order) {
       this.logger.warn(
-        `Order not found for reference ${reference} or transaction ID ${id}`,
+        `Order not found for reference (order ID) ${reference}`,
       );
       return { status: 'order_not_found' };
     }
