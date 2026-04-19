@@ -48,14 +48,22 @@ export class OrdersService {
 
     // Calcular total y construir items sin validar stock (orden administrativa)
     let total = 0;
-    const orderItemsData: { productId: string; variantId?: string; quantity: number; price: number }[] = [];
+    const orderItemsData: { productId: string; variantId?: string; variantName?: string; quantity: number; price: number }[] = [];
 
     await this.prisma.$transaction(async (tx) => {
       for (const item of items) {
+        // Snapshot del nombre de la variante
+        let variantName: string | undefined;
+        if (item.variantId) {
+          const variant = await tx.variant.findUnique({ where: { id: item.variantId }, select: { name: true } });
+          variantName = variant?.name;
+        }
+
         total += item.price * item.quantity;
         orderItemsData.push({
           productId: item.productId,
           variantId: item.variantId,
+          variantName,
           quantity: item.quantity,
           price: item.price,
         });
@@ -182,6 +190,7 @@ export class OrdersService {
         quantity: number;
         price: number;
         variantId?: string;
+        variantName?: string;
       }[] = [];
       // 2. Validate Items & Calculate Total
       for (const item of createOrderDto.items) {
@@ -260,10 +269,16 @@ export class OrdersService {
           }
         }
 
+        // Snapshot del nombre de la variante al momento de la compra
+        const variantName = item.variantId
+          ? product.variants.find((v) => v.id === item.variantId)?.name
+          : undefined;
+
         total += price * item.quantity;
         orderItemsData.push({
           productId: item.productId,
-          variantId: item.variantId, // Add variantId to order item
+          variantId: item.variantId,
+          variantName,
           quantity: item.quantity,
           price: price,
         });
