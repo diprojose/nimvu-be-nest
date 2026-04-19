@@ -38,12 +38,12 @@ export class WompiService {
       );
     }
 
-    const { id, status, reference, amount_in_cents } = transaction;
+    const { id, status, reference } = transaction;
     const timestamp = data.timestamp;
-    const signatureChecksum = data.signature.checksum;
+    const signatureChecksum = data.signature?.checksum;
+    const signatureProperties: string[] = data.signature?.properties || [];
 
-    // Verify Signature
-    // Checksum = SHA256(transaction.id + transaction.status + transaction.amount_in_cents + timestamp + secret)
+    // Verify Signature using dynamic properties from Wompi
     const secret = this.configService.get<string>('WOMPI_EVENTS_SECRET');
     if (!secret) {
       this.logger.error(
@@ -52,15 +52,29 @@ export class WompiService {
       throw new BadRequestException('Server misconfiguration');
     }
 
-    // Ensure all parts are strings for concatenation
-    const signatureString = `${id}${status}${amount_in_cents}${timestamp}${secret}`;
+    // Build signature string from the properties Wompi tells us to use
+    // Each property is a path like "transaction.id", "transaction.status", etc.
+    const propertyValues = signatureProperties.map((prop: string) => {
+      const parts = prop.split('.');
+      let value: any = data.data;
+      for (const part of parts) {
+        value = value?.[part];
+      }
+      return value;
+    });
+
+    const signatureString = [...propertyValues, timestamp, secret].join('');
     const calculatedChecksum = createHash('sha256')
       .update(signatureString)
       .digest('hex');
 
+    this.logger.log(
+      `Webhook signature check — properties: ${signatureProperties.join(', ')}, values: ${propertyValues.join(', ')}`,
+    );
+
     if (calculatedChecksum !== signatureChecksum) {
       this.logger.error(
-        `Invalid signature for Wompi webhook. Expected: ${calculatedChecksum}, Received: ${signatureChecksum}`,
+        `Invalid signature for Wompi webhook. Calculated: ${calculatedChecksum}, Received: ${signatureChecksum}`,
       );
       throw new BadRequestException('Invalid signature');
     }

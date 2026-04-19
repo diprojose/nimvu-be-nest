@@ -4,15 +4,34 @@ import { PrismaClient, Prisma } from '@prisma/client';
 function buildDatabaseUrl(): string {
   const base = process.env.DATABASE_URL!;
   const url = new URL(base);
-  // Transaction mode (puerto 6543) con Supabase Supavisor:
-  // - pgbouncer=true: deshabilita prepared statements, requerido para transaction mode.
-  // - connection_limit=10: en transaction mode cada conexión se libera tras cada query,
-  //   10 conexiones son suficientes para cientos de requests simultáneos.
-  // - pool_timeout=30: tiempo máximo de espera para obtener una conexión libre.
   url.searchParams.set('pgbouncer', 'true');
   url.searchParams.set('connection_limit', '10');
   url.searchParams.set('pool_timeout', '30');
   return url.toString();
+}
+
+const RETRYABLE_CODES = new Set(['P1001', 'P1017', 'P2024']);
+const MAX_RETRIES = 3;
+
+async function retryOperation<T>(fn: () => Promise<T>, logger: Logger): Promise<T> {
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const isRetryable =
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        RETRYABLE_CODES.has(err.code);
+
+      if (isRetryable && attempt < MAX_RETRIES) {
+        const delay = 150 * attempt;
+        logger.warn(`${(err as Prisma.PrismaClientKnownRequestError).code} on attempt ${attempt}/${MAX_RETRIES} — retrying in ${delay}ms...`);
+        await new Promise((r) => setTimeout(r, delay));
+      } else {
+        throw err;
+      }
+    }
+  }
+  throw new Error('Unreachable');
 }
 
 @Injectable()
@@ -25,31 +44,15 @@ export class PrismaService extends PrismaClient implements OnModuleDestroy {
         db: { url: buildDatabaseUrl() },
       },
     });
-    this.logger.log('PrismaService initialized (lazy connect, Transaction mode)');
+    this.logger.log('PrismaService initialized (lazy connect, Transaction mode, auto-retry on P1001/P1017/P2024)');
   }
 
   /**
-   * Ejecuta una operación con reintentos automáticos para errores transitorios:
-   * - P1017: Supabase cerró la conexión idle (común en dev con poca actividad)
-   * - P2024: Pool de conexiones agotado bajo carga
+   * Wraps any Prisma call with automatic retry for transient connection errors.
+   * Use for critical operations where you want explicit control.
    */
-  async withRetry<T>(fn: () => Promise<T>, retries = 3): Promise<T | undefined> {
-    for (let attempt = 1; attempt <= retries; attempt++) {
-      try {
-        return await fn();
-      } catch (err) {
-        const isRetryable =
-          err instanceof Prisma.PrismaClientKnownRequestError &&
-          (err.code === 'P1017' || err.code === 'P2024');
-
-        if (isRetryable && attempt < retries) {
-          this.logger.warn(`${(err as Prisma.PrismaClientKnownRequestError).code} — retrying (${attempt}/${retries})...`);
-          await new Promise((r) => setTimeout(r, 100 * attempt));
-        } else {
-          throw err;
-        }
-      }
-    }
+  async withRetry<T>(fn: () => Promise<T>): Promise<T> {
+    return retryOperation(fn, this.logger);
   }
 
   async onModuleDestroy() {

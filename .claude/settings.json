@@ -16,7 +16,8 @@
       "Bash(cat node_modules/next/dist/server/web/spec-extension/revalidate.d.ts)",
       "Bash(grep -r \"revalidateTag\" node_modules/next/dist/server/revalidate.d.ts)",
       "Bash(node -e \"const {revalidateTag} = require\\('next/cache'\\); console.log\\(revalidateTag.length\\)\")",
-      "Bash(node -e \"console.log\\(require\\('./node_modules/next/package.json'\\).version\\)\")"
+      "Bash(node -e \"console.log\\(require\\('./node_modules/next/package.json'\\).version\\)\")",
+      "Bash(npx tsc *)"
     ]
   }
 }
