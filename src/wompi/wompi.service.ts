@@ -68,18 +68,11 @@ export class WompiService {
       .update(signatureString)
       .digest('hex');
 
-    // Debug logging — safe to remove once signature is verified
-    const safeSecret = secret ? `${secret.substring(0, 12)}...` : 'MISSING';
-    this.logger.log(
-      `Webhook signature debug — properties: [${signatureProperties.join(', ')}], values: [${propertyValues.join(', ')}], timestamp: ${timestamp}, secret: ${safeSecret}, fullString (no secret): ${[...propertyValues, timestamp].join('')}`,
-    );
-
     if (calculatedChecksum !== signatureChecksum) {
       this.logger.error(
         `Invalid signature. Calculated: ${calculatedChecksum}, Received: ${signatureChecksum}`,
       );
-      // Log but don't block — allow webhook to process while we debug the signature
-      this.logger.warn('Signature mismatch — processing webhook anyway to avoid blocking payments');
+      throw new BadRequestException('Invalid signature');
     }
 
     this.logger.log(
