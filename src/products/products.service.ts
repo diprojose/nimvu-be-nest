@@ -99,7 +99,7 @@ export class ProductsService {
             where: { productId: id, sku: { notIn: submittedSkus } },
           });
 
-          // Upsert remaining/new variants
+          // Update existing variants by ID, create new ones
           for (const variant of variants) {
             const { id: variantId, ...variantData } = variant as any;
             if (variantId) {
@@ -108,10 +108,8 @@ export class ProductsService {
                 data: variantData,
               });
             } else {
-              await prisma.variant.upsert({
-                where: { sku: variantData.sku },
-                update: variantData,
-                create: { ...variantData, productId: id },
+              await prisma.variant.create({
+                data: { ...variantData, productId: id },
               });
             }
           }
