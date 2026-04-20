@@ -5,8 +5,9 @@ function buildDatabaseUrl(): string {
   const base = process.env.DATABASE_URL!;
   const url = new URL(base);
   url.searchParams.set('pgbouncer', 'true');
-  url.searchParams.set('connection_limit', '10');
-  url.searchParams.set('pool_timeout', '30');
+  url.searchParams.set('connection_limit', '20');
+  url.searchParams.set('pool_timeout', '20');
+  url.searchParams.set('connect_timeout', '15');
   return url.toString();
 }
 
