@@ -1,4 +1,4 @@
-import { Injectable, OnModuleDestroy, Logger } from '@nestjs/common';
+import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
 import { PrismaClient, Prisma } from '@prisma/client';
 
 function buildDatabaseUrl(): string {
@@ -36,8 +36,9 @@ async function retryOperation<T>(fn: () => Promise<T>, logger: Logger): Promise<
 }
 
 @Injectable()
-export class PrismaService extends PrismaClient implements OnModuleDestroy {
+export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PrismaService.name);
+  private keepAliveInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
     super({
@@ -48,15 +49,25 @@ export class PrismaService extends PrismaClient implements OnModuleDestroy {
     this.logger.log('PrismaService initialized (lazy connect, Transaction mode, auto-retry on P1001/P1017/P2024)');
   }
 
-  /**
-   * Wraps any Prisma call with automatic retry for transient connection errors.
-   * Use for critical operations where you want explicit control.
-   */
+  async onModuleInit() {
+    await this.$connect();
+    // Ping DB every 4 minutes to keep Supavisor connections alive
+    this.keepAliveInterval = setInterval(async () => {
+      try {
+        await this.$queryRawUnsafe('SELECT 1');
+      } catch (err) {
+        this.logger.warn('Keep-alive ping failed, connection will reconnect on next request');
+      }
+    }, 4 * 60 * 1000);
+    this.logger.log('Database connected, keep-alive started (4 min interval)');
+  }
+
   async withRetry<T>(fn: () => Promise<T>): Promise<T> {
     return retryOperation(fn, this.logger);
   }
 
   async onModuleDestroy() {
+    if (this.keepAliveInterval) clearInterval(this.keepAliveInterval);
     await this.$disconnect();
   }
 }

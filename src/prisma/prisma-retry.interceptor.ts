@@ -10,7 +10,7 @@ import { mergeMap } from 'rxjs/operators';
 import { Prisma } from '@prisma/client';
 
 const RETRYABLE_CODES = new Set(['P1001', 'P1017', 'P2024']);
-const MAX_RETRIES = 2;
+const MAX_RETRIES = 3;
 
 @Injectable()
 export class PrismaRetryInterceptor implements NestInterceptor {
@@ -46,7 +46,7 @@ export class PrismaRetryInterceptor implements NestInterceptor {
               }
 
               attempt++;
-              const delay = 200 * attempt;
+              const delay = 500 * attempt;
               this.logger.warn(
                 `${error.code} retry ${attempt}/${MAX_RETRIES} in ${delay}ms — ${context.getClass().name}.${context.getHandler().name}`,
               );
