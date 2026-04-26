@@ -14,6 +14,7 @@ async function bootstrap() {
       'http://localhost:5174',
       'http://localhost:3000',
       'https://nimvu-admin.vercel.app',
+      'https://nimvu-react-admin.vercel.app',
       'https://nimvu-react-admin-git-master-diprojoses-projects.vercel.app',
       'https://nimvu.vercel.app',
       'https://www.somosnimvu.com',

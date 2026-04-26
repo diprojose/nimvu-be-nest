@@ -39,6 +39,7 @@ export class UsersService {
         isB2BApproved: true,
         createdAt: true,
         updatedAt: true,
+        addresses: true,
       },
       orderBy: { createdAt: 'desc' },
     });
