@@ -18,11 +18,13 @@ enum PaymentMethod {
   WOMPI
   CASH_ON_DELIVERY
   WHATSAPP
+  MERCADO_LIBRE
 }
 
 enum OrderStatus {
   PENDING
   PROCESSING
+  PACKED
   SHIPPED
   DELIVERED
   CANCELLED
@@ -173,6 +175,28 @@ model Category {
   products    Product[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+}
+
+enum ExpenseCategory {
+  FILAMENT
+  PACKAGING
+  ADVERTISING
+  SHIPPING
+  TOOLS
+  MAINTENANCE
+  SOFTWARE
+  OTHER
+}
+
+model Expense {
+  id          String          @id @default(uuid())
+  description String
+  amount      Float
+  category    ExpenseCategory
+  date        DateTime
+  notes       String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 }
 
 model ShippingRate {
