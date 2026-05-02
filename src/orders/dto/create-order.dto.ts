@@ -10,6 +10,7 @@ import {
   IsNumber,
   IsObject,
   IsEnum,
+  ArrayMinSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaymentMethod } from '@prisma/client';
@@ -38,6 +39,7 @@ export class CreateOrderDto {
   shippingAddress: object; // Accepts the address object
 
   @IsArray()
+  @ArrayMinSize(1, { message: 'La orden debe contener al menos un producto.' })
   @ValidateNested({ each: true })
   @Type(() => OrderItemDto)
   items: OrderItemDto[];
@@ -65,6 +67,7 @@ export class CreateGuestOrderDto {
   shippingAddress: object; // Accepts the address object
 
   @IsArray()
+  @ArrayMinSize(1, { message: 'La orden debe contener al menos un producto.' })
   @ValidateNested({ each: true })
   @Type(() => OrderItemDto)
   items: OrderItemDto[];

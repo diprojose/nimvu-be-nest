@@ -8,6 +8,7 @@ import {
   IsEnum,
   ValidateNested,
   Min,
+  ArrayMinSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaymentMethod } from '@prisma/client';
@@ -56,6 +57,7 @@ export class CreateManualOrderDto {
   state: string;
 
   @IsArray()
+  @ArrayMinSize(1, { message: 'La orden debe contener al menos un producto.' })
   @ValidateNested({ each: true })
   @Type(() => ManualOrderItemDto)
   items: ManualOrderItemDto[];
