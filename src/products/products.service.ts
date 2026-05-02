@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { ConflictException, HttpException, Injectable, InternalServerErrorException } from '@nestjs/common';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -108,9 +108,26 @@ export class ProductsService {
                 data: variantData,
               });
             } else {
-              await prisma.variant.create({
-                data: { ...variantData, productId: id },
-              });
+              // Variant without id: could be a brand new variant, OR an existing
+              // variant that the frontend re-sent without its id. Lookup by sku
+              // to avoid P2002 unique-constraint failures.
+              const existing = variantData.sku
+                ? await prisma.variant.findUnique({ where: { sku: variantData.sku } })
+                : null;
+              if (existing && existing.productId === id) {
+                await prisma.variant.update({
+                  where: { id: existing.id },
+                  data: variantData,
+                });
+              } else if (existing) {
+                throw new ConflictException(
+                  `El SKU "${variantData.sku}" ya está en uso por otro producto.`,
+                );
+              } else {
+                await prisma.variant.create({
+                  data: { ...variantData, productId: id },
+                });
+              }
             }
           }
         }
@@ -125,6 +142,7 @@ export class ProductsService {
       return updated;
     } catch (error) {
       console.error('Error updating product:', error);
+      if (error instanceof HttpException) throw error;
       throw new InternalServerErrorException(error instanceof Error ? error.message : String(error));
     }
   }
