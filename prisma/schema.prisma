@@ -65,6 +65,7 @@ model Product {
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
   isB2BOnly       Boolean      @default(false)
+  isActive        Boolean      @default(true)
   slug            String?      @unique
   variants        Variant[]
   orderItems      OrderItem[]

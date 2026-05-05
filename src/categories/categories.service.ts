@@ -33,7 +33,9 @@ export class CategoriesService {
       include: {
         _count: {
           select: {
-            products: isB2BContext ? true : { where: { isB2BOnly: false } },
+            products: isB2BContext
+              ? { where: { isActive: true } }
+              : { where: { isB2BOnly: false, isActive: true } },
           },
         },
       },
@@ -44,7 +46,9 @@ export class CategoriesService {
     const category = await this.prisma.category.findUnique({
       where: { id },
       include: {
-        products: isB2BContext ? true : { where: { isB2BOnly: false } },
+        products: isB2BContext
+          ? { where: { isActive: true } }
+          : { where: { isB2BOnly: false, isActive: true } },
       },
     });
     if (!category) {

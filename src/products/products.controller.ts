@@ -25,14 +25,21 @@ export class ProductsController {
   }
 
   @Get()
-  findAll(@Query('isB2B') isB2B?: string) {
+  findAll(
+    @Query('isB2B') isB2B?: string,
+    @Query('includeInactive') includeInactive?: string,
+  ) {
     const isB2BContext = isB2B === 'true';
-    return this.productsService.findAll(isB2BContext);
+    const showInactive = includeInactive === 'true';
+    return this.productsService.findAll(isB2BContext, showInactive);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.productsService.findOne(id);
+  findOne(
+    @Param('id') id: string,
+    @Query('includeInactive') includeInactive?: string,
+  ) {
+    return this.productsService.findOne(id, includeInactive === 'true');
   }
 
   @UseGuards(AuthGuard('jwt'))

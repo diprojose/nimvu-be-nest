@@ -26,7 +26,9 @@ export class CollectionsService {
   findAll(isB2BContext: boolean = false) {
     return this.prisma.collection.findMany({
       include: {
-        products: isB2BContext ? true : { where: { isB2BOnly: false } },
+        products: isB2BContext
+          ? { where: { isActive: true } }
+          : { where: { isB2BOnly: false, isActive: true } },
       },
     });
   }
@@ -46,7 +48,9 @@ export class CollectionsService {
     const collection = await this.prisma.collection.findUnique({
       where: { slug },
       include: {
-        products: isB2BContext ? true : { where: { isB2BOnly: false } },
+        products: isB2BContext
+          ? { where: { isActive: true } }
+          : { where: { isB2BOnly: false, isActive: true } },
       },
     });
     if (!collection) {

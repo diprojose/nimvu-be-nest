@@ -88,6 +88,10 @@ export class CreateProductDto {
   @IsOptional()
   isB2BOnly?: boolean;
 
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateVariantDto)

@@ -41,8 +41,10 @@ export class ProductsService {
     return product;
   }
 
-  findAll(isB2BContext: boolean = false) {
-    const where = isB2BContext ? undefined : { isB2BOnly: false };
+  findAll(isB2BContext: boolean = false, includeInactive: boolean = false) {
+    const where: any = {};
+    if (!isB2BContext) where.isB2BOnly = false;
+    if (!includeInactive) where.isActive = true;
     return this.prisma.product.findMany({
       where,
       orderBy: { createdAt: 'asc' },
@@ -50,17 +52,21 @@ export class ProductsService {
     });
   }
 
-  findOne(term: string) {
+  async findOne(term: string, includeInactive: boolean = false) {
     const isUuid =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
         term,
       );
     const where = isUuid ? { id: term } : { slug: term };
 
-    return this.prisma.product.findUnique({
+    const product = await this.prisma.product.findUnique({
       where,
       include: { variants: true, category: true },
     });
+
+    if (!product) return null;
+    if (!includeInactive && product.isActive === false) return null;
+    return product;
   }
 
   async update(id: string, updateProductDto: UpdateProductDto) {
