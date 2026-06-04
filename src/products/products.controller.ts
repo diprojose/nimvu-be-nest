@@ -28,10 +28,15 @@ export class ProductsController {
   findAll(
     @Query('isB2B') isB2B?: string,
     @Query('includeInactive') includeInactive?: string,
+    @Query('universeSlug') universeSlug?: string,
+    @Query('universeId') universeId?: string,
   ) {
     const isB2BContext = isB2B === 'true';
     const showInactive = includeInactive === 'true';
-    return this.productsService.findAll(isB2BContext, showInactive);
+    return this.productsService.findAll(isB2BContext, showInactive, {
+      universeSlug,
+      universeId,
+    });
   }
 
   @Get(':id')

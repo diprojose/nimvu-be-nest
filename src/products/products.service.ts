@@ -41,10 +41,19 @@ export class ProductsService {
     return product;
   }
 
-  findAll(isB2BContext: boolean = false, includeInactive: boolean = false) {
+  findAll(
+    isB2BContext: boolean = false,
+    includeInactive: boolean = false,
+    filter: { universeSlug?: string; universeId?: string } = {},
+  ) {
     const where: any = {};
     if (!isB2BContext) where.isB2BOnly = false;
     if (!includeInactive) where.isActive = true;
+    if (filter.universeId) {
+      where.category = { universeId: filter.universeId };
+    } else if (filter.universeSlug) {
+      where.category = { universe: { slug: filter.universeSlug } };
+    }
     return this.prisma.product.findMany({
       where,
       orderBy: { createdAt: 'asc' },

@@ -16,6 +16,7 @@ import { ShippingModule } from './shipping/shipping.module';
 import { WompiModule } from './wompi/wompi.module';
 import { ExpensesModule } from './expenses/expenses.module';
 import { UniversesModule } from './universes/universes.module';
+import { BannersModule } from './banners/banners.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { UniversesModule } from './universes/universes.module';
     WompiModule,
     ExpensesModule,
     UniversesModule,
+    BannersModule,
   ],
   controllers: [AppController],
 
