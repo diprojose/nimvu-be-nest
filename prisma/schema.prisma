@@ -30,6 +30,11 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum ShippingCarrier {
+  ENVIA
+  SERVIENTREGA
+}
+
 model User {
   id            String    @id @default(uuid())
   email         String    @unique
@@ -136,6 +141,8 @@ model Order {
   updatedAt           DateTime      @updatedAt
   shippingAddress     Json?
   recoveryEmailSent   Boolean       @default(false)
+  shippingCarrier     ShippingCarrier?
+  trackingNumber      String?
   items               OrderItem[]
 }
 
@@ -168,14 +175,36 @@ model Address {
 
 model Category {
   id          String    @id @default(uuid())
-  name        String    @unique
-  slug        String?   @unique
+  name        String
+  slug        String?
   description String?
   image       String?
   order       Int       @default(0)
   products    Product[]
+  universeId  String?
+  universe    Universe? @relation(fields: [universeId], references: [id])
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+
+  @@unique([universeId, name])
+  @@unique([universeId, slug])
+}
+
+model Universe {
+  id              String     @id @default(uuid())
+  name            String     @unique
+  slug            String     @unique
+  description     String?
+  icon            String?
+  primaryColor    String?
+  secondaryColor  String?
+  accentColor     String?
+  order           Int        @default(0)
+  isActive        Boolean    @default(true)
+  comingSoon      Boolean    @default(false)
+  categories      Category[]
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
 }
 
 enum ExpenseCategory {

@@ -345,6 +345,11 @@ export class OrdersService {
   }
 
   async update(id: string, updateOrderDto: UpdateOrderDto) {
+    const previous = await this.prisma.order.findUnique({
+      where: { id },
+      select: { trackingNumber: true, shippingCarrier: true },
+    });
+
     const updated = await this.prisma.order.update({
       where: { id },
       data: updateOrderDto,
@@ -363,6 +368,16 @@ export class OrdersService {
     if (updateOrderDto.status === 'PROCESSING') {
       this.mailService.sendOrderConfirmation(updated.user, updated);
       this.mailService.sendAdminOrderAlert(updated.user, updated);
+    }
+
+    // Notify customer when tracking is added or changes
+    const trackingChanged =
+      updated.trackingNumber &&
+      updated.shippingCarrier &&
+      (updated.trackingNumber !== previous?.trackingNumber ||
+        updated.shippingCarrier !== previous?.shippingCarrier);
+    if (trackingChanged) {
+      this.mailService.sendShippingNotification(updated.user, updated);
     }
 
     return updated;

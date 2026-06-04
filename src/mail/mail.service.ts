@@ -214,6 +214,57 @@ export class MailService {
     });
   }
 
+  async sendShippingNotification(user: any, order: any) {
+    const CARRIER_INFO: Record<string, { name: string; trackingUrl: string }> = {
+      ENVIA: { name: 'Envía', trackingUrl: 'https://envia.co/' },
+      SERVIENTREGA: { name: 'Servientrega', trackingUrl: 'https://www.servientrega.com/wps/portal/rastreo-envio' },
+    };
+
+    const carrierKey = order.shippingCarrier as string;
+    const carrier = CARRIER_INFO[carrierKey];
+    if (!carrier || !order.trackingNumber) return;
+
+    await this.mailerService.sendMail({
+      to: user.email,
+      subject: `Tu pedido #${order.id.slice(0, 8)} va en camino 🚚`,
+      html: `
+        <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 8px; overflow: hidden;">
+          <div style="background: #000; padding: 24px; text-align: center;">
+            <h1 style="color: #fff; margin: 0; font-size: 22px; letter-spacing: 2px;">NIMVU</h1>
+          </div>
+          <div style="padding: 32px 24px;">
+            <h2 style="margin-top: 0; font-size: 20px;">¡Tu pedido ya está en camino!</h2>
+            <p style="color: #555; line-height: 1.6;">
+              Hola${user.name ? ` ${user.name.split(' ')[0]}` : ''}, tu pedido <strong>#${order.id.slice(0, 8)}</strong> fue despachado con <strong>${carrier.name}</strong>. Puedes hacer seguimiento usando el número de guía a continuación.
+            </p>
+
+            <div style="background:#f9f9f9; border:1px solid #eee; border-radius:6px; padding:20px; margin:24px 0; text-align:center;">
+              <div style="color:#888; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin-bottom:6px;">Transportadora</div>
+              <div style="font-size:16px; font-weight:bold; margin-bottom:14px;">${carrier.name}</div>
+              <div style="color:#888; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin-bottom:6px;">Número de guía</div>
+              <div style="font-family:monospace; font-size:20px; font-weight:bold; letter-spacing:1px;">${order.trackingNumber}</div>
+            </div>
+
+            <div style="text-align: center; margin: 24px 0;">
+              <a href="${carrier.trackingUrl}"
+                 style="background: #000; color: #fff; padding: 14px 40px; text-decoration: none; font-weight: bold; letter-spacing: 1px; font-size: 13px; text-transform: uppercase; display: inline-block; border-radius: 2px;">
+                Seguir mi pedido
+              </a>
+            </div>
+
+            <p style="color:#888; font-size:13px; text-align:center; margin-top: 24px;">
+              Si el botón no funciona, copia este enlace en tu navegador:<br/>
+              <a href="${carrier.trackingUrl}" style="color:#666; word-break:break-all;">${carrier.trackingUrl}</a>
+            </p>
+
+            <hr style="margin: 24px 0; border: none; border-top: 1px solid #ddd;" />
+            <p style="margin:0; font-weight:bold; text-align:center;">Gracias por elegir Nimvu.</p>
+          </div>
+        </div>
+      `,
+    });
+  }
+
   async sendAdminOrderAlert(user: any, order: any) {
     const adminEmail = process.env.MAIL_ADMIN || 'admin@nimvu.com';
 

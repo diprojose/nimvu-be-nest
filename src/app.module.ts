@@ -15,6 +15,7 @@ import { DiscountsModule } from './discounts/discounts.module';
 import { ShippingModule } from './shipping/shipping.module';
 import { WompiModule } from './wompi/wompi.module';
 import { ExpensesModule } from './expenses/expenses.module';
+import { UniversesModule } from './universes/universes.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { ExpensesModule } from './expenses/expenses.module';
     ShippingModule,
     WompiModule,
     ExpensesModule,
+    UniversesModule,
   ],
   controllers: [AppController],
 

@@ -27,10 +27,22 @@ export class CategoriesService {
       .replace(/--+/g, '-'); // Replace multiple - with single -
   }
 
-  findAll(isB2BContext: boolean = false) {
+  findAll(
+    isB2BContext: boolean = false,
+    filter: { universeId?: string; universeSlug?: string } = {},
+  ) {
+    const where: {
+      universeId?: string;
+      universe?: { slug: string };
+    } = {};
+    if (filter.universeId) where.universeId = filter.universeId;
+    else if (filter.universeSlug) where.universe = { slug: filter.universeSlug };
+
     return this.prisma.category.findMany({
+      where,
       orderBy: { order: 'asc' },
       include: {
+        universe: true,
         _count: {
           select: {
             products: isB2BContext
@@ -46,6 +58,7 @@ export class CategoriesService {
     const category = await this.prisma.category.findUnique({
       where: { id },
       include: {
+        universe: true,
         products: isB2BContext
           ? { where: { isActive: true } }
           : { where: { isB2BOnly: false, isActive: true } },

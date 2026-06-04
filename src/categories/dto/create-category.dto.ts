@@ -20,4 +20,8 @@ export class CreateCategoryDto {
   @IsInt()
   @IsOptional()
   order?: number;
+
+  @IsString()
+  @IsOptional()
+  universeId?: string;
 }

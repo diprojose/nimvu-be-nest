@@ -27,9 +27,16 @@ export class CategoriesController {
   }
 
   @Get()
-  findAll(@Query('isB2B') isB2B?: string) {
+  findAll(
+    @Query('isB2B') isB2B?: string,
+    @Query('universeId') universeId?: string,
+    @Query('universeSlug') universeSlug?: string,
+  ) {
     const isB2BContext = isB2B === 'true';
-    return this.categoriesService.findAll(isB2BContext);
+    return this.categoriesService.findAll(isB2BContext, {
+      universeId,
+      universeSlug,
+    });
   }
 
   @Get(':id')
