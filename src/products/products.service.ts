@@ -27,11 +27,17 @@ export class ProductsService {
     const { variants, ...productData } = createProductDto;
     const slug = productData.slug || this.slugify(productData.name);
 
+    const universeId = await this.resolveUniverseId({
+      explicitUniverseId: createProductDto.universeId,
+      categoryId: createProductDto.categoryId,
+    });
+
     const product = await this.prisma.product.create({
       data: {
         ...productData,
         slug,
         categoryId: createProductDto.categoryId,
+        universeId,
         variants: { create: variants },
       },
       include: { variants: true },
@@ -39,6 +45,26 @@ export class ProductsService {
 
     this.revalidation.revalidate(['products', 'collections']);
     return product;
+  }
+
+  private async resolveUniverseId(opts: {
+    explicitUniverseId?: string | null;
+    categoryId?: string | null;
+  }): Promise<string | null> {
+    if (opts.explicitUniverseId) return opts.explicitUniverseId;
+    if (opts.categoryId) {
+      const category = await this.prisma.category.findUnique({
+        where: { id: opts.categoryId },
+        select: { universeId: true },
+      });
+      if (category?.universeId) return category.universeId;
+    }
+    // Fallback to hogar if it exists, otherwise null.
+    const hogar = await this.prisma.universe.findUnique({
+      where: { slug: 'hogar' },
+      select: { id: true },
+    });
+    return hogar?.id ?? null;
   }
 
   findAll(
@@ -50,14 +76,14 @@ export class ProductsService {
     if (!isB2BContext) where.isB2BOnly = false;
     if (!includeInactive) where.isActive = true;
     if (filter.universeId) {
-      where.category = { universeId: filter.universeId };
+      where.universeId = filter.universeId;
     } else if (filter.universeSlug) {
-      where.category = { universe: { slug: filter.universeSlug } };
+      where.universe = { slug: filter.universeSlug };
     }
     return this.prisma.product.findMany({
       where,
       orderBy: { createdAt: 'asc' },
-      include: { variants: true, category: true },
+      include: { variants: true, category: true, universe: true },
     });
   }
 
@@ -70,7 +96,7 @@ export class ProductsService {
 
     const product = await this.prisma.product.findUnique({
       where,
-      include: { variants: true, category: true },
+      include: { variants: true, category: true, universe: true },
     });
 
     if (!product) return null;
@@ -86,6 +112,18 @@ export class ProductsService {
     // Handle empty string for categoryId which might come from the frontend
     if (data.categoryId === '') {
       (data as any).categoryId = null;
+    }
+    if (data.universeId === '') {
+      (data as any).universeId = null;
+    }
+
+    // Sync universeId: if caller didn't explicitly set it but did change the
+    // category, derive universeId from the new category so they stay aligned.
+    if (data.universeId === undefined && data.categoryId !== undefined) {
+      const resolved = await this.resolveUniverseId({
+        categoryId: (data as any).categoryId,
+      });
+      (data as any).universeId = resolved;
     }
 
     // Auto-generate slug if missing in DB and not provided in update

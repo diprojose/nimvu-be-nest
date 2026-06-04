@@ -84,6 +84,10 @@ export class CreateProductDto {
   @IsOptional()
   categoryId?: string;
 
+  @IsString()
+  @IsOptional()
+  universeId?: string;
+
   @IsBoolean()
   @IsOptional()
   isB2BOnly?: boolean;

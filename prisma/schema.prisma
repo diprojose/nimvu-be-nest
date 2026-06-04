@@ -76,6 +76,8 @@ model Product {
   orderItems      OrderItem[]
   categoryId      String?
   category        Category?    @relation(fields: [categoryId], references: [id])
+  universeId      String?
+  universe        Universe?    @relation(fields: [universeId], references: [id])
   collections     Collection[]
   discountPrice   Float?
   discountEndDate DateTime?
@@ -204,26 +206,33 @@ model Universe {
   comingSoon      Boolean    @default(false)
   categories      Category[]
   banners         Banner[]
+  products        Product[]
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 }
 
 model Banner {
-  id          String    @id @default(uuid())
-  universeId  String?
-  universe    Universe? @relation(fields: [universeId], references: [id])
-  image       String
-  mobileImage String?
-  badge       String?
-  title       String
-  subtitle    String?
-  ctaText     String?
-  ctaHref     String?
-  textColor   String?
-  order       Int       @default(0)
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id              String    @id @default(uuid())
+  universeId      String?
+  universe        Universe? @relation(fields: [universeId], references: [id])
+  image           String
+  mobileImage     String?
+  badge           String?
+  title           String
+  subtitle        String?
+  ctaText         String?
+  ctaHref         String?
+  textColor       String?
+  badgeColor      String?
+  titleColor      String?
+  subtitleColor   String?
+  accentLineColor String?
+  ctaBgColor      String?
+  ctaTextColor    String?
+  order           Int       @default(0)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }
 
 enum ExpenseCategory {
