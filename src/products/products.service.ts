@@ -2,7 +2,7 @@ import { ConflictException, HttpException, Injectable, InternalServerErrorExcept
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { PrismaService } from '../prisma/prisma.service';
-import { RevalidationService } from './revalidation.service';
+import { RevalidationService } from '../common/revalidation.service';
 
 @Injectable()
 export class ProductsService {
@@ -43,7 +43,7 @@ export class ProductsService {
       include: { variants: true },
     });
 
-    this.revalidation.revalidate(['products', 'collections']);
+    this.revalidation.revalidate(['products', 'collections', 'categories', 'universes']);
     return product;
   }
 
@@ -70,7 +70,12 @@ export class ProductsService {
   findAll(
     isB2BContext: boolean = false,
     includeInactive: boolean = false,
-    filter: { universeSlug?: string; universeId?: string } = {},
+    filter: {
+      universeSlug?: string;
+      universeId?: string;
+      categorySlug?: string;
+      categoryId?: string;
+    } = {},
   ) {
     const where: any = {};
     if (!isB2BContext) where.isB2BOnly = false;
@@ -79,6 +84,16 @@ export class ProductsService {
       where.universeId = filter.universeId;
     } else if (filter.universeSlug) {
       where.universe = { slug: filter.universeSlug };
+    }
+    if (filter.categoryId) {
+      where.categoryId = filter.categoryId;
+    } else if (filter.categorySlug) {
+      // When both universe and category slugs are present, scope the category
+      // match to that universe so identically-named categories in different
+      // universes don't cross-pollinate.
+      where.category = filter.universeSlug
+        ? { slug: filter.categorySlug, universe: { slug: filter.universeSlug } }
+        : { slug: filter.categorySlug };
     }
     return this.prisma.product.findMany({
       where,
@@ -188,7 +203,7 @@ export class ProductsService {
         return product;
       });
 
-      const tags = ['products', 'collections'];
+      const tags = ['products', 'collections', 'categories', 'universes'];
       if (updated.slug) tags.push(`product-${updated.slug}`);
       this.revalidation.revalidate(tags);
 
@@ -202,7 +217,7 @@ export class ProductsService {
 
   async remove(id: string) {
     const product = await this.prisma.product.delete({ where: { id } });
-    this.revalidation.revalidate(['products', 'collections']);
+    this.revalidation.revalidate(['products', 'collections', 'categories', 'universes']);
     return product;
   }
 }

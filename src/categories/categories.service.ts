@@ -2,19 +2,27 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { RevalidationService } from '../common/revalidation.service';
+
+const REVALIDATION_TAGS = ['categories', 'universes'];
 
 @Injectable()
 export class CategoriesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly revalidation: RevalidationService,
+  ) {}
 
-  create(createCategoryDto: CreateCategoryDto) {
+  async create(createCategoryDto: CreateCategoryDto) {
     const slug = this.slugify(createCategoryDto.slug || createCategoryDto.name);
-    return this.prisma.category.create({
+    const created = await this.prisma.category.create({
       data: {
         ...createCategoryDto,
         slug,
       },
     });
+    this.revalidation.revalidate(REVALIDATION_TAGS);
+    return created;
   }
 
   private slugify(text: string): string {
@@ -81,19 +89,23 @@ export class CategoriesService {
       slug = this.slugify(updateCategoryDto.name || category.name);
     }
 
-    return this.prisma.category.update({
+    const updated = await this.prisma.category.update({
       where: { id },
       data: {
         ...updateCategoryDto,
         ...(slug && { slug }),
       },
     });
+    this.revalidation.revalidate(REVALIDATION_TAGS);
+    return updated;
   }
 
   async remove(id: string) {
     await this.findOne(id);
-    return this.prisma.category.delete({
+    const removed = await this.prisma.category.delete({
       where: { id },
     });
+    this.revalidation.revalidate(REVALIDATION_TAGS);
+    return removed;
   }
 }

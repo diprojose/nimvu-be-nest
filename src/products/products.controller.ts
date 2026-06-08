@@ -30,12 +30,16 @@ export class ProductsController {
     @Query('includeInactive') includeInactive?: string,
     @Query('universeSlug') universeSlug?: string,
     @Query('universeId') universeId?: string,
+    @Query('categorySlug') categorySlug?: string,
+    @Query('categoryId') categoryId?: string,
   ) {
     const isB2BContext = isB2B === 'true';
     const showInactive = includeInactive === 'true';
     return this.productsService.findAll(isB2BContext, showInactive, {
       universeSlug,
       universeId,
+      categorySlug,
+      categoryId,
     });
   }
 

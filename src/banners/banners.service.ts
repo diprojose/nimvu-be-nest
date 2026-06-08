@@ -2,15 +2,23 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateBannerDto } from './dto/create-banner.dto';
 import { UpdateBannerDto } from './dto/update-banner.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { RevalidationService } from '../common/revalidation.service';
+
+const REVALIDATION_TAGS = ['banners'];
 
 @Injectable()
 export class BannersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly revalidation: RevalidationService,
+  ) {}
 
-  create(dto: CreateBannerDto) {
-    return this.prisma.banner.create({
+  async create(dto: CreateBannerDto) {
+    const created = await this.prisma.banner.create({
       data: { ...dto, universeId: dto.universeId || null },
     });
+    this.revalidation.revalidate(REVALIDATION_TAGS);
+    return created;
   }
 
   findAll(filter: {
@@ -52,12 +60,16 @@ export class BannersService {
     const data: any = { ...dto };
     if (data.universeId === '') data.universeId = null;
 
-    return this.prisma.banner.update({ where: { id }, data });
+    const updated = await this.prisma.banner.update({ where: { id }, data });
+    this.revalidation.revalidate(REVALIDATION_TAGS);
+    return updated;
   }
 
   async remove(id: string) {
     const banner = await this.prisma.banner.findUnique({ where: { id } });
     if (!banner) throw new NotFoundException(`Banner #${id} not found`);
-    return this.prisma.banner.delete({ where: { id } });
+    const removed = await this.prisma.banner.delete({ where: { id } });
+    this.revalidation.revalidate(REVALIDATION_TAGS);
+    return removed;
   }
 }

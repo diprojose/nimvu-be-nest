@@ -2,16 +2,24 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateUniverseDto } from './dto/create-universe.dto';
 import { UpdateUniverseDto } from './dto/update-universe.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { RevalidationService } from '../common/revalidation.service';
+
+const REVALIDATION_TAGS = ['universes', 'categories'];
 
 @Injectable()
 export class UniversesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly revalidation: RevalidationService,
+  ) {}
 
-  create(dto: CreateUniverseDto) {
+  async create(dto: CreateUniverseDto) {
     const slug = this.slugify(dto.slug || dto.name);
-    return this.prisma.universe.create({
+    const created = await this.prisma.universe.create({
       data: { ...dto, slug },
     });
+    this.revalidation.revalidate(REVALIDATION_TAGS);
+    return created;
   }
 
   private slugify(text: string): string {
@@ -76,10 +84,12 @@ export class UniversesService {
       throw new NotFoundException(`Universe #${id} not found`);
     }
     const slug = dto.slug ? this.slugify(dto.slug) : undefined;
-    return this.prisma.universe.update({
+    const updated = await this.prisma.universe.update({
       where: { id },
       data: { ...dto, ...(slug && { slug }) },
     });
+    this.revalidation.revalidate(REVALIDATION_TAGS);
+    return updated;
   }
 
   async remove(id: string) {
@@ -87,6 +97,8 @@ export class UniversesService {
     if (!universe) {
       throw new NotFoundException(`Universe #${id} not found`);
     }
-    return this.prisma.universe.delete({ where: { id } });
+    const removed = await this.prisma.universe.delete({ where: { id } });
+    this.revalidation.revalidate(REVALIDATION_TAGS);
+    return removed;
   }
 }
