@@ -8,6 +8,7 @@ import { CreateManualOrderDto } from './dto/create-manual-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
+import { ShippingService } from '../shipping/shipping.service';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -15,6 +16,7 @@ export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mailService: MailService,
+    private readonly shippingService: ShippingService,
   ) { }
 
   async createManualOrder(dto: CreateManualOrderDto) {
@@ -284,10 +286,23 @@ export class OrdersService {
         });
       }
 
-      const finalTotal = total + (shippingCost || 0);
+      // Recalcular el envío de forma autoritativa en el servidor a partir del
+      // subtotal calculado aquí: aplica envío gratis sobre el umbral y usa la
+      // tarifa configurada para la ubicación. Así el cliente no puede falsear
+      // el costo de envío (p. ej. forzar $0 sin alcanzar el umbral).
+      const addr = shippingAddress as any;
+      const effectiveShippingCost = await this.shippingService.resolveShippingCost({
+        subtotal: total,
+        country: addr?.country || addr?.country_code || 'Colombia',
+        state: addr?.province || addr?.state,
+        city: addr?.city,
+        fallback: shippingCost,
+      });
+
+      const finalTotal = total + effectiveShippingCost;
       const addressWithShipping = {
-        ...(shippingAddress as any),
-        shippingCost: shippingCost || 0,
+        ...addr,
+        shippingCost: effectiveShippingCost,
       };
 
       // Create Order

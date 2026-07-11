@@ -30,6 +30,8 @@ export class AuthService {
     const payload = { email: user.email, sub: user.id, role: user.role };
     return {
       access_token: this.jwtService.sign(payload),
+      // El admin (useAuth.login) espera `user` para guardar rol/id en el store.
+      user,
     };
   }
 
