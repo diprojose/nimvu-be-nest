@@ -20,7 +20,7 @@ export class OrdersService {
   ) { }
 
   async createManualOrder(dto: CreateManualOrderDto) {
-    const { customerName, customerPhone, customerEmail, address, city, state, items, paymentMethod, shippingCost, notes } = dto;
+    const { customerName, customerPhone, customerEmail, address, city, state, items, paymentMethod, shippingCost, discount, notes } = dto;
 
     // Buscar o crear usuario. Si no hay email, generamos uno interno por teléfono.
     const emailKey = customerEmail || `wa_${customerPhone.replace(/\D/g, '')}@whatsapp.nimvu`;
@@ -85,7 +85,8 @@ export class OrdersService {
       }
     });
 
-    const finalTotal = total + (shippingCost || 0);
+    const appliedDiscount = Math.max(0, discount || 0);
+    const finalTotal = Math.max(0, total + (shippingCost || 0) - appliedDiscount);
     const shippingAddress = {
       first_name: customerName.split(' ')[0] || customerName,
       last_name: customerName.split(' ').slice(1).join(' ') || '',
@@ -95,6 +96,7 @@ export class OrdersService {
       country_code: 'CO',
       phone: customerPhone,
       shippingCost: shippingCost || 0,
+      discount: appliedDiscount,
       ...(notes ? { notes } : {}),
     };
 

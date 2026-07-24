@@ -70,6 +70,11 @@ export class CreateManualOrderDto {
   @IsOptional()
   shippingCost?: number;
 
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  discount?: number; // Descuento en COP aplicado al total (ej. descuentos de WhatsApp)
+
   @IsString()
   @IsOptional()
   notes?: string;
