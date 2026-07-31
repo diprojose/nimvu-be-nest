@@ -36,12 +36,12 @@ export class AuthService {
   }
 
   async getProfile(userId: string) {
+    // findOne ya excluye password y los campos de reset de contrasena.
     const user = await this.usersService.findOne(userId);
     if (!user) {
       throw new Error('User not found');
     }
-    const { password, ...result } = user;
-    return result;
+    return user;
   }
 
   async forgotPassword(email: string) {

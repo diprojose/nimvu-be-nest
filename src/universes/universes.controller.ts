@@ -7,9 +7,8 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards,
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { AdminOnly } from '../auth/admin-only.decorator';
 import { UniversesService } from './universes.service';
 import { CreateUniverseDto } from './dto/create-universe.dto';
 import { UpdateUniverseDto } from './dto/update-universe.dto';
@@ -19,7 +18,7 @@ export class UniversesController {
   constructor(private readonly universesService: UniversesService) {}
 
   @Post()
-  @UseGuards(AuthGuard('jwt'))
+  @AdminOnly()
   create(@Body() dto: CreateUniverseDto) {
     return this.universesService.create(dto);
   }
@@ -44,13 +43,13 @@ export class UniversesController {
   }
 
   @Patch(':id')
-  @UseGuards(AuthGuard('jwt'))
+  @AdminOnly()
   update(@Param('id') id: string, @Body() dto: UpdateUniverseDto) {
     return this.universesService.update(id, dto);
   }
 
   @Delete(':id')
-  @UseGuards(AuthGuard('jwt'))
+  @AdminOnly()
   remove(@Param('id') id: string) {
     return this.universesService.remove(id);
   }

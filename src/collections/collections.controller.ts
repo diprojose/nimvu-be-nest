@@ -6,20 +6,19 @@ import {
   Patch,
   Param,
   Delete,
-  UseGuards,
   Query,
 } from '@nestjs/common';
 import { CollectionsService } from './collections.service';
 import { CreateCollectionDto } from './dto/create-collection.dto';
 import { UpdateCollectionDto } from './dto/update-collection.dto';
-import { AuthGuard } from '@nestjs/passport'; // Assuming AuthGuard is used
+import { AdminOnly } from '../auth/admin-only.decorator';
 
 @Controller('collections')
 export class CollectionsController {
   constructor(private readonly collectionsService: CollectionsService) {}
 
   @Post()
-  // @UseGuards(AuthGuard('jwt')) // Uncomment if auth is required
+  @AdminOnly()
   create(@Body() createCollectionDto: CreateCollectionDto) {
     return this.collectionsService.create(createCollectionDto);
   }
@@ -42,6 +41,7 @@ export class CollectionsController {
   }
 
   @Patch(':id')
+  @AdminOnly()
   update(
     @Param('id') id: string,
     @Body() updateCollectionDto: UpdateCollectionDto,
@@ -50,6 +50,7 @@ export class CollectionsController {
   }
 
   @Delete(':id')
+  @AdminOnly()
   remove(@Param('id') id: string) {
     return this.collectionsService.remove(id);
   }

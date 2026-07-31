@@ -7,9 +7,8 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards,
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { AdminOnly } from '../auth/admin-only.decorator';
 import { BannersService } from './banners.service';
 import { CreateBannerDto } from './dto/create-banner.dto';
 import { UpdateBannerDto } from './dto/update-banner.dto';
@@ -19,7 +18,7 @@ export class BannersController {
   constructor(private readonly bannersService: BannersService) {}
 
   @Post()
-  @UseGuards(AuthGuard('jwt'))
+  @AdminOnly()
   create(@Body() dto: CreateBannerDto) {
     return this.bannersService.create(dto);
   }
@@ -45,13 +44,13 @@ export class BannersController {
   }
 
   @Patch(':id')
-  @UseGuards(AuthGuard('jwt'))
+  @AdminOnly()
   update(@Param('id') id: string, @Body() dto: UpdateBannerDto) {
     return this.bannersService.update(id, dto);
   }
 
   @Delete(':id')
-  @UseGuards(AuthGuard('jwt'))
+  @AdminOnly()
   remove(@Param('id') id: string) {
     return this.bannersService.remove(id);
   }

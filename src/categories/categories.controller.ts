@@ -6,23 +6,20 @@ import {
   Patch,
   Param,
   Delete,
-  UseGuards,
-  Request,
   Query,
 } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
-import { AuthGuard } from '@nestjs/passport';
+import { AdminOnly } from '../auth/admin-only.decorator';
 
 @Controller('categories')
 export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
   @Post()
-  @UseGuards(AuthGuard('jwt'))
-  create(@Body() createCategoryDto: CreateCategoryDto, @Request() req) {
-    // Optional: Check if user is ADMIN
+  @AdminOnly()
+  create(@Body() createCategoryDto: CreateCategoryDto) {
     return this.categoriesService.create(createCategoryDto);
   }
 
@@ -46,7 +43,7 @@ export class CategoriesController {
   }
 
   @Patch(':id')
-  @UseGuards(AuthGuard('jwt'))
+  @AdminOnly()
   update(
     @Param('id') id: string,
     @Body() updateCategoryDto: UpdateCategoryDto,
@@ -55,7 +52,7 @@ export class CategoriesController {
   }
 
   @Delete(':id')
-  @UseGuards(AuthGuard('jwt'))
+  @AdminOnly()
   remove(@Param('id') id: string) {
     return this.categoriesService.remove(id);
   }

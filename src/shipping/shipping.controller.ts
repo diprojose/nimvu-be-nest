@@ -6,21 +6,19 @@ import {
   Patch,
   Param,
   Delete,
-  Query,
-  UseGuards,
   BadRequestException,
 } from '@nestjs/common';
 import { ShippingService } from './shipping.service';
 import { CreateShippingDto } from './dto/create-shipping.dto';
 import { UpdateShippingDto } from './dto/update-shipping.dto';
-// import { AuthGuard } from '@nestjs/passport';
+import { AdminOnly } from '../auth/admin-only.decorator';
 
 @Controller('shipping')
 export class ShippingController {
   constructor(private readonly shippingService: ShippingService) {}
 
   @Post()
-  // @UseGuards(AuthGuard('jwt'))
+  @AdminOnly()
   create(@Body() createShippingDto: CreateShippingDto) {
     return this.shippingService.create(createShippingDto);
   }
@@ -42,7 +40,7 @@ export class ShippingController {
   }
 
   @Patch(':id')
-  // @UseGuards(AuthGuard('jwt'))
+  @AdminOnly()
   update(
     @Param('id') id: string,
     @Body() updateShippingDto: UpdateShippingDto,
@@ -51,7 +49,7 @@ export class ShippingController {
   }
 
   @Delete(':id')
-  // @UseGuards(AuthGuard('jwt'))
+  @AdminOnly()
   remove(@Param('id') id: string) {
     return this.shippingService.remove(id);
   }

@@ -6,17 +6,16 @@ import {
   ParseFilePipe,
   MaxFileSizeValidator,
   FileTypeValidator,
-  UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { FilesService } from './files.service';
-import { AuthGuard } from '@nestjs/passport';
+import { AdminOnly } from '../auth/admin-only.decorator';
 
 @Controller('files')
 export class FilesController {
   constructor(private readonly filesService: FilesService) {}
 
-  @UseGuards(AuthGuard('jwt'))
+  @AdminOnly()
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
   uploadFile(

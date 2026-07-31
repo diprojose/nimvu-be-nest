@@ -6,15 +6,15 @@ import {
   Patch,
   Param,
   Delete,
-  UseGuards,
 } from '@nestjs/common';
 import { ExpensesService } from './expenses.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
-import { AuthGuard } from '@nestjs/passport';
+import { AdminOnly } from '../auth/admin-only.decorator';
 
+// Datos financieros internos: todo el controller es solo para admins.
 @Controller('expenses')
-@UseGuards(AuthGuard('jwt'))
+@AdminOnly()
 export class ExpensesController {
   constructor(private readonly expensesService: ExpensesService) {}
 

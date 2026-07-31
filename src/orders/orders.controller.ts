@@ -8,12 +8,14 @@ import {
   Delete,
   UseGuards,
   Request,
+  NotFoundException,
 } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto, CreateGuestOrderDto } from './dto/create-order.dto';
 import { CreateManualOrderDto } from './dto/create-manual-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { AuthGuard } from '@nestjs/passport';
+import { AdminOnly } from '../auth/admin-only.decorator';
 
 @Controller('orders')
 export class OrdersController {
@@ -30,7 +32,7 @@ export class OrdersController {
     return this.ordersService.createGuestOrder(createGuestOrderDto);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @AdminOnly()
   @Post('manual')
   createManual(@Body() createManualOrderDto: CreateManualOrderDto) {
     return this.ordersService.createManualOrder(createManualOrderDto);
@@ -48,23 +50,29 @@ export class OrdersController {
 
   @UseGuards(AuthGuard('jwt'))
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.ordersService.findOne(id);
+  async findOne(@Param('id') id: string, @Request() req) {
+    const order = await this.ordersService.findOne(id);
+    // Un usuario solo puede ver sus propias ordenes. Se responde 404 en vez de
+    // 403 para no confirmar que el id existe.
+    if (!order || (req.user.role !== 'ADMIN' && order.userId !== req.user.userId)) {
+      throw new NotFoundException('Orden no encontrada');
+    }
+    return order;
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @AdminOnly()
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateOrderDto: UpdateOrderDto) {
     return this.ordersService.update(id, updateOrderDto);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @AdminOnly()
   @Post(':id/send-recovery')
   sendRecoveryEmail(@Param('id') id: string) {
     return this.ordersService.sendRecoveryEmail(id);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @AdminOnly()
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.ordersService.remove(id);
