@@ -35,12 +35,45 @@ enum ShippingCarrier {
   SERVIENTREGA
 }
 
+// ── Postventa ──────────────────────────────────────────────────────────────
+
+enum PostSaleType {
+  TRANSIT_DAMAGE // llego roto: transportadora o empaque
+  CUSTOMER_DAMAGE // el cliente lo rompio
+  EXCHANGE // cambio de color/modelo
+  MISSING_ITEM // faltante en el pedido
+  OTHER
+}
+
+enum PostSaleFault {
+  NIMVU
+  CUSTOMER
+  UNDEFINED
+}
+
+/// Quien paga el envio del repuesto. CUSTOMER_TO_COURIER es plata que el
+/// cliente si paga, pero que nunca pasa por la caja de Nimvu: se registra el
+/// monto de forma informativa y no debe contarse como ingreso.
+enum PostSaleShippingPayer {
+  NIMVU
+  CUSTOMER_TO_NIMVU
+  CUSTOMER_TO_COURIER
+}
+
+enum PostSaleStatus {
+  OPEN
+  PREPARING
+  SHIPPED
+  RESOLVED
+  CANCELLED
+}
+
 model User {
-  id            String    @id @default(uuid())
-  email         String    @unique
-  password      String
-  name          String?
-  role          Role      @default(USER)
+  id                  String    @id @default(uuid())
+  email               String    @unique
+  password            String
+  name                String?
+  role                Role      @default(USER)
   // B2B Specifics
   companyName         String?
   taxId               String?
@@ -55,7 +88,7 @@ model User {
 }
 
 model Product {
-  id              String       @id @default(uuid())
+  id              String         @id @default(uuid())
   name            String
   description     String?
   price           Float
@@ -67,17 +100,18 @@ model Product {
   length          Float?
   // Rich Text Description
   longDescription String? // @db.Text is implied for String in Prisma unless specified otherwise, but for Postgres String is text.
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  isB2BOnly       Boolean      @default(false)
-  isActive        Boolean      @default(true)
-  slug            String?      @unique
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  isB2BOnly       Boolean        @default(false)
+  isActive        Boolean        @default(true)
+  slug            String?        @unique
   variants        Variant[]
   orderItems      OrderItem[]
+  postSaleItems   PostSaleItem[]
   categoryId      String?
-  category        Category?    @relation(fields: [categoryId], references: [id])
+  category        Category?      @relation(fields: [categoryId], references: [id])
   universeId      String?
-  universe        Universe?    @relation(fields: [universeId], references: [id])
+  universe        Universe?      @relation(fields: [universeId], references: [id])
   collections     Collection[]
   discountPrice   Float?
   discountEndDate DateTime?
@@ -132,20 +166,21 @@ model Variant {
 }
 
 model Order {
-  id                  String        @id @default(uuid())
-  userId              String
-  user                User          @relation(fields: [userId], references: [id])
-  status              OrderStatus   @default(PENDING)
-  total               Float
-  paymentId           String?       @unique
-  paymentMethod       PaymentMethod @default(WOMPI)
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
-  shippingAddress     Json?
-  recoveryEmailSent   Boolean       @default(false)
-  shippingCarrier     ShippingCarrier?
-  trackingNumber      String?
-  items               OrderItem[]
+  id                String           @id @default(uuid())
+  userId            String
+  user              User             @relation(fields: [userId], references: [id])
+  status            OrderStatus      @default(PENDING)
+  total             Float
+  paymentId         String?          @unique
+  paymentMethod     PaymentMethod    @default(WOMPI)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  shippingAddress   Json?
+  recoveryEmailSent Boolean          @default(false)
+  shippingCarrier   ShippingCarrier?
+  trackingNumber    String?
+  items             OrderItem[]
+  postSaleCases     PostSaleCase[]
 }
 
 model OrderItem {
@@ -193,22 +228,22 @@ model Category {
 }
 
 model Universe {
-  id              String     @id @default(uuid())
-  name            String     @unique
-  slug            String     @unique
-  description     String?
-  icon            String?
-  primaryColor    String?
-  secondaryColor  String?
-  accentColor     String?
-  order           Int        @default(0)
-  isActive        Boolean    @default(true)
-  comingSoon      Boolean    @default(false)
-  categories      Category[]
-  banners         Banner[]
-  products        Product[]
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  id             String     @id @default(uuid())
+  name           String     @unique
+  slug           String     @unique
+  description    String?
+  icon           String?
+  primaryColor   String?
+  secondaryColor String?
+  accentColor    String?
+  order          Int        @default(0)
+  isActive       Boolean    @default(true)
+  comingSoon     Boolean    @default(false)
+  categories     Category[]
+  banners        Banner[]
+  products       Product[]
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 }
 
 model Banner {
@@ -267,4 +302,51 @@ model ShippingRate {
   updatedAt DateTime @updatedAt
 
   @@unique([country, state, city]) // Ensure no duplicate rules for the same location combo
+}
+
+/// Caso de postventa sobre una orden ya entregada: roturas, cambios de color,
+/// faltantes. Una orden puede acumular varios casos a lo largo del tiempo.
+model PostSaleCase {
+  id      String @id @default(uuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id])
+
+  type   PostSaleType
+  fault  PostSaleFault  @default(UNDEFINED)
+  status PostSaleStatus @default(OPEN)
+
+  description String?
+
+  // Envio del repuesto. shippingAmount se guarda tambien cuando paga el
+  // domiciliario, aunque en ese caso no sea plata de Nimvu.
+  shippingPayer   PostSaleShippingPayer?
+  shippingAmount  Float?
+  shippingCarrier ShippingCarrier?
+  trackingNumber  String?
+
+  items PostSaleItem[]
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  resolvedAt DateTime?
+
+  @@index([orderId])
+}
+
+/// Producto involucrado en un caso. En un cambio, `fromVariantName` es la
+/// variante que el cliente tenia y `variantName` la que se le envio.
+model PostSaleItem {
+  id     String       @id @default(uuid())
+  caseId String
+  case   PostSaleCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  variantName     String?
+  fromVariantName String?
+  quantity        Int     @default(1)
+  note            String?
+
+  @@index([caseId])
 }

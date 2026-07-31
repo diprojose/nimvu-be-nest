@@ -339,24 +339,33 @@ export class OrdersService {
     return order;
   }
 
+  // Los casos de postventa llevan notas internas y atribucion de culpa, asi
+  // que solo se adjuntan cuando quien consulta es un admin.
   findAll(userId?: string) {
     const where = userId ? { userId } : {};
+    const isAdminRequest = !userId;
     return this.prisma.order.findMany({
       where,
       include: {
         items: { include: { product: true, variant: true } },
         user: { select: { id: true, email: true, name: true, taxId: true } },
+        ...(isAdminRequest
+          ? { postSaleCases: { include: { items: true } } }
+          : {}),
       },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  findOne(id: string) {
+  findOne(id: string, includePostSale = false) {
     return this.prisma.order.findUnique({
       where: { id },
       include: {
         items: { include: { product: true, variant: true } },
         user: { select: { id: true, email: true, name: true, taxId: true } },
+        ...(includePostSale
+          ? { postSaleCases: { include: { items: true } } }
+          : {}),
       },
     });
   }

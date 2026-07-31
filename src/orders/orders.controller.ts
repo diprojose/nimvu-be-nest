@@ -51,10 +51,11 @@ export class OrdersController {
   @UseGuards(AuthGuard('jwt'))
   @Get(':id')
   async findOne(@Param('id') id: string, @Request() req) {
-    const order = await this.ordersService.findOne(id);
+    const isAdmin = req.user.role === 'ADMIN';
+    const order = await this.ordersService.findOne(id, isAdmin);
     // Un usuario solo puede ver sus propias ordenes. Se responde 404 en vez de
     // 403 para no confirmar que el id existe.
-    if (!order || (req.user.role !== 'ADMIN' && order.userId !== req.user.userId)) {
+    if (!order || (!isAdmin && order.userId !== req.user.userId)) {
       throw new NotFoundException('Orden no encontrada');
     }
     return order;
