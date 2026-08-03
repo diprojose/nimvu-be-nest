@@ -23,8 +23,10 @@ export class OrdersController {
 
   @UseGuards(AuthGuard('jwt'))
   @Post()
-  create(@Body() createOrderDto: CreateOrderDto) {
-    return this.ordersService.create(createOrderDto);
+  create(@Body() createOrderDto: CreateOrderDto, @Request() req) {
+    // El dueno sale del token, nunca del body: si no, cualquiera podria crear
+    // ordenes a nombre de otro usuario.
+    return this.ordersService.create(createOrderDto, req.user.userId);
   }
 
   @Post('guest')

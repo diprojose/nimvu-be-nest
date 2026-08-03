@@ -91,6 +91,44 @@ export class WompiService {
       return { status: 'order_not_found' };
     }
 
+    // Verificar que se pago lo que la orden vale. Sin esto, quien tenga el
+    // secreto de integridad puede firmar un pago de $1.000 para una orden de
+    // $500.000 y el webhook la aprobaria igual.
+    if (status === 'APPROVED') {
+      const paidCents = transaction.amount_in_cents;
+      const expectedCents = Math.round(order.total * 100);
+      // 100 centavos = $1, margen solo para redondeo de punto flotante.
+      const TOLERANCE_CENTS = 100;
+
+      if (typeof paidCents !== 'number') {
+        this.logger.error(
+          `Transaccion ${id} sin amount_in_cents; no se aprueba la orden ${order.id}`,
+        );
+        return { status: 'amount_missing' };
+      }
+
+      if (paidCents < expectedCents - TOLERANCE_CENTS) {
+        // Se deja PENDING a proposito: el cliente si pago algo, asi que
+        // cancelarla seria injusto, pero aprobarla seria despachar de mas.
+        // Queda para revision manual.
+        this.logger.error(
+          `MONTO INSUFICIENTE en orden ${order.id}: pagaron ${paidCents} y se esperaban ${expectedCents} centavos (transaccion ${id}). Se deja PENDING para revision.`,
+        );
+        await this.prisma.order.update({
+          where: { id: order.id },
+          data: { paymentId: id },
+        });
+        return { status: 'amount_mismatch' };
+      }
+
+      if (paidCents > expectedCents + TOLERANCE_CENTS) {
+        // Pagar de mas no es un ataque; se registra y se deja seguir.
+        this.logger.warn(
+          `Orden ${order.id}: se pago ${paidCents} y se esperaban ${expectedCents} centavos.`,
+        );
+      }
+    }
+
     let newStatus = order.status;
 
     if (status === 'APPROVED') {

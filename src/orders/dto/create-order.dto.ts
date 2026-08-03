@@ -1,7 +1,6 @@
 import {
   IsArray,
   IsNotEmpty,
-  IsUUID,
   ValidateNested,
   IsInt,
   Min,
@@ -29,11 +28,11 @@ class OrderItemDto {
   quantity: number;
 }
 
+/**
+ * El dueno de la orden NO viaja en el body: se toma del JWT en el controller.
+ * Si el cliente manda `userId`, el ValidationPipe con whitelist lo descarta.
+ */
 export class CreateOrderDto {
-  @IsUUID()
-  @IsNotEmpty()
-  userId: string;
-
   @IsObject()
   @IsNotEmpty()
   shippingAddress: object; // Accepts the address object
@@ -55,6 +54,11 @@ export class CreateOrderDto {
   @IsNumber()
   @IsOptional()
   shippingCost?: number;
+
+  /** Cupón que el cliente aplicó. El servidor lo revalida y calcula el monto. */
+  @IsString()
+  @IsOptional()
+  couponCode?: string;
 }
 
 export class CreateGuestOrderDto {
@@ -83,4 +87,9 @@ export class CreateGuestOrderDto {
   @IsNumber()
   @IsOptional()
   shippingCost?: number;
+
+  /** Cupón que el cliente aplicó. El servidor lo revalida y calcula el monto. */
+  @IsString()
+  @IsOptional()
+  couponCode?: string;
 }

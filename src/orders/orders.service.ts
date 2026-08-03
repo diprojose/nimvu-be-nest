@@ -9,6 +9,7 @@ import { UpdateOrderDto } from './dto/update-order.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
 import { ShippingService } from '../shipping/shipping.service';
+import { DiscountsService } from '../discounts/discounts.service';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -17,7 +18,55 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly mailService: MailService,
     private readonly shippingService: ShippingService,
+    private readonly discountsService: DiscountsService,
   ) { }
+
+  /**
+   * Calcula el descuento de un cupón sobre los items ya valorados por el
+   * servidor. Replica la logica que el checkout muestra al cliente, pero es
+   * esta la autoritativa: `order.total` debe ser exactamente lo que se cobra,
+   * porque el webhook de Wompi compara contra ese valor.
+   *
+   * Devuelve 0 si el cupón no existe o no es válido: el pedido sigue su curso
+   * a precio lleno en vez de fallar el checkout completo.
+   */
+  private async resolveCouponDiscount(
+    couponCode: string | undefined,
+    items: { productId: string; quantity: number; price: number }[],
+  ): Promise<{ amount: number; discountId?: string }> {
+    if (!couponCode) return { amount: 0 };
+
+    let discount: any;
+    try {
+      discount = await this.discountsService.validateCoupon(couponCode);
+    } catch {
+      return { amount: 0 };
+    }
+
+    // Si el cupón apunta a productos o colecciones concretas, solo esos items
+    // suman para el descuento.
+    const targetIds = new Set<string>([
+      ...(discount.products?.map((p: any) => p.id) ?? []),
+      ...(discount.collections?.flatMap(
+        (c: any) => c.products?.map((p: any) => p.id) ?? [],
+      ) ?? []),
+    ]);
+
+    const applicable = targetIds.size
+      ? items
+          .filter((i) => targetIds.has(i.productId))
+          .reduce((sum, i) => sum + i.price * i.quantity, 0)
+      : items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+
+    if (applicable === 0) return { amount: 0 };
+
+    const amount =
+      discount.type === 'PERCENTAGE'
+        ? applicable * (discount.value / 100)
+        : Math.min(applicable, discount.value);
+
+    return { amount, discountId: discount.id };
+  }
 
   async createManualOrder(dto: CreateManualOrderDto) {
     const { customerName, customerPhone, customerEmail, address, city, state, items, paymentMethod, shippingCost, discount, notes } = dto;
@@ -118,7 +167,7 @@ export class OrdersService {
   }
 
   async createGuestOrder(createGuestOrderDto: CreateGuestOrderDto) {
-    const { email, items, paymentId, paymentMethod, shippingAddress, shippingCost } = createGuestOrderDto;
+    const { email, items, paymentId, paymentMethod, shippingAddress, shippingCost, couponCode } = createGuestOrderDto;
 
     // Verificar si el usuario ya existe
     let user = await this.prisma.user.findUnique({ where: { email } });
@@ -159,15 +208,15 @@ export class OrdersService {
     // Delegation to standard order creation using the existing method context,
     // avoiding code duplication of the large logic block.
     const createOrderDto: CreateOrderDto = {
-      userId: user.id,
       items,
       paymentId,
       paymentMethod,
       shippingAddress,
       shippingCost,
+      couponCode,
     };
 
-    const order = await this.create(createOrderDto);
+    const order = await this.create(createOrderDto, user.id);
 
     // Send emails: the standard create method already sends order confirmation and admin alert.
     // If it's a new user, we also send the guest welcome email.
@@ -178,9 +227,17 @@ export class OrdersService {
     return order;
   }
 
-  async create(createOrderDto: CreateOrderDto) {
-    const { userId, items, paymentId, paymentMethod, shippingAddress, shippingCost } =
-      createOrderDto;
+  // userId llega aparte, siempre desde una fuente confiable (el JWT del
+  // controller, o el usuario resuelto en createGuestOrder).
+  async create(createOrderDto: CreateOrderDto, userId: string) {
+    const {
+      items,
+      paymentId,
+      paymentMethod,
+      shippingAddress,
+      shippingCost,
+      couponCode,
+    } = createOrderDto;
 
     // 1. Validate User exists
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
@@ -301,10 +358,26 @@ export class OrdersService {
         fallback: shippingCost,
       });
 
-      const finalTotal = total + effectiveShippingCost;
+      // El cupón se revalida aquí, no se confía en el monto del cliente.
+      const coupon = await this.resolveCouponDiscount(couponCode, orderItemsData);
+      const finalTotal = Math.max(
+        0,
+        total - coupon.amount + effectiveShippingCost,
+      );
+
+      if (coupon.discountId) {
+        await tx.discount.update({
+          where: { id: coupon.discountId },
+          data: { usedCount: { increment: 1 } },
+        });
+      }
+
       const addressWithShipping = {
         ...addr,
         shippingCost: effectiveShippingCost,
+        ...(coupon.amount > 0
+          ? { couponCode, discount: coupon.amount }
+          : {}),
       };
 
       // Create Order
