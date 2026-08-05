@@ -1,12 +1,14 @@
 import {
   IsArray,
   IsBoolean,
+  IsDateString,
   IsInt,
   IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
   Min,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -101,4 +103,16 @@ export class CreateProductDto {
   @Type(() => CreateVariantDto)
   @IsOptional()
   variants?: CreateVariantDto[];
+
+  // Promoción temporal. Se aceptan null para poder quitarla desde el admin.
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  discountPrice?: number | null;
+
+  @IsDateString()
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  discountEndDate?: string | null;
 }
