@@ -19,6 +19,7 @@ import { UniversesModule } from './universes/universes.module';
 import { BannersModule } from './banners/banners.module';
 import { CommonModule } from './common/common.module';
 import { PostSaleModule } from './post-sale/post-sale.module';
+import { CheckoutLeadsModule } from './checkout-leads/checkout-leads.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { PostSaleModule } from './post-sale/post-sale.module';
     BannersModule,
     CommonModule,
     PostSaleModule,
+    CheckoutLeadsModule,
   ],
   controllers: [AppController],
 
