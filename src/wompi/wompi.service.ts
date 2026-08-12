@@ -52,6 +52,17 @@ export class WompiService {
       throw new BadRequestException('Server misconfiguration');
     }
 
+    // Sin propiedades no hay nada de la transaccion dentro de la firma: el
+    // string quedaria en timestamp+secret y el checksum validaria igual
+    // cualquier monto o estado que venga en el payload. Wompi siempre las
+    // manda, asi que un arreglo vacio es un payload que no viene de Wompi.
+    if (!Array.isArray(signatureProperties) || signatureProperties.length === 0) {
+      this.logger.error(
+        `Webhook sin signature.properties para la transaccion ${id}; se rechaza.`,
+      );
+      throw new BadRequestException('Invalid signature');
+    }
+
     // Build signature string from the properties Wompi tells us to use
     // Each property is a path like "transaction.id", "transaction.status", etc.
     const propertyValues = signatureProperties.map((prop: string) => {
