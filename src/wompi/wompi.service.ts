@@ -143,33 +143,44 @@ export class WompiService {
     let newStatus = order.status;
 
     if (status === 'APPROVED') {
-      // If it was already processed, ignore?
-      if (order.status === 'PENDING') {
-        // Logic to start processing (e.g. if we didn't deduct stock before, do it now?
-        // Logic in OrderService.create decrements stock IMMEDIATELY.
-        // So if it fails, we should technically restore stock.
-        // But usually we just mark as PAID/PROCESSING.
-        newStatus = 'PROCESSING'; // or whatever enum maps to PAID. Schema has PENDING, PROCESSING, SHIPPED, DELIVERED, CANCELLED.
-        // Let's use PROCESSING for Paid.
+      // PENDING es el caso normal. CANCELLED entra porque los reintentos
+      // comparten la misma referencia: si el primer intento fue rechazado y el
+      // segundo se aprueba, hay que revivir la orden o el cliente paga y nadie
+      // despacha. Los estados ya despachados (PACKED/SHIPPED/DELIVERED) y
+      // PROCESSING se dejan quietos: ya estan donde deben.
+      if (order.status === 'PENDING' || order.status === 'CANCELLED') {
+        newStatus = 'PROCESSING';
       }
     } else if (
       status === 'DECLINED' ||
       status === 'VOIDED' ||
       status === 'ERROR'
     ) {
-      if (order.status !== 'CANCELLED') {
+      // Solo desde PENDING. Un rechazo del primer intento puede llegar DESPUES
+      // del aprobado del segundo (misma referencia); cancelar ahi seria tumbar
+      // una orden pagada y devolver stock que si se vendio.
+      if (order.status === 'PENDING') {
         newStatus = 'CANCELLED';
-        // TODO: Restore stock if we deducted it on creation?
-        // OrderService.create deducted stock. So yes, should restore.
+      } else {
+        this.logger.warn(
+          `Se ignora ${status} de la transaccion ${id}: la orden ${order.id} ya esta en ${order.status}.`,
+        );
       }
     }
 
-    if (newStatus !== order.status) {
+    const statusChanged = newStatus !== order.status;
+    // El paymentId se graba aunque el estado no cambie. Sin esto, una orden que
+    // alguien movio a mano antes de que llegara el webhook queda sin rastro del
+    // pago, indistinguible de una abandonada.
+    const shouldWritePaymentId =
+      status === 'APPROVED' && order.paymentId !== id;
+
+    if (statusChanged || shouldWritePaymentId) {
       const updatedOrder = await this.prisma.order.update({
         where: { id: order.id },
         data: {
-          status: newStatus,
-          paymentId: id,
+          ...(statusChanged ? { status: newStatus } : {}),
+          ...(shouldWritePaymentId ? { paymentId: id } : {}),
         },
         include: {
           items: {
@@ -182,8 +193,11 @@ export class WompiService {
         },
       });
 
-      // Enviar correos de confirmación cuando el pago es aprobado
-      if (newStatus === 'PROCESSING') {
+      // Los correos salen solo cuando ESTA llamada movio la orden a PROCESSING.
+      // Si ya venia en PROCESSING es porque un admin la adelanto a mano, y ese
+      // camino (orders.service.update) ya mando la confirmacion: repetirla le
+      // llegaria dos veces al cliente.
+      if (statusChanged && newStatus === 'PROCESSING') {
         try {
           await this.mailService.sendOrderConfirmation(updatedOrder.user, updatedOrder);
           await this.mailService.sendAdminOrderAlert(updatedOrder.user, updatedOrder);
@@ -197,11 +211,28 @@ export class WompiService {
       }
 
       // Si se cancela, restaurar stock
-      if (newStatus === 'CANCELLED' && order.status !== 'CANCELLED') {
+      if (statusChanged && newStatus === 'CANCELLED') {
         await this.restoreStock(order.id);
       }
 
-      this.logger.log(`Order ${order.id} status updated to ${newStatus}`);
+      // Revivir una orden cancelada NO vuelve a descontar inventario a
+      // proposito: no hay forma de saber si el stock se habia devuelto (el
+      // webhook lo devuelve, una cancelacion manual del admin no), y descontar
+      // de mas es peor que quedar corto. Queda para revision humana.
+      if (statusChanged && order.status === 'CANCELLED') {
+        this.logger.error(
+          `Orden ${order.id} REACTIVADA por pago aprobado (transaccion ${id}). ` +
+            `Revisar inventario a mano: el stock pudo haberse devuelto al cancelarla.`,
+        );
+      }
+
+      if (statusChanged) {
+        this.logger.log(`Order ${order.id} status updated to ${newStatus}`);
+      } else {
+        this.logger.log(
+          `Orden ${order.id}: se registro el pago ${id} sin cambiar el estado (${order.status}).`,
+        );
+      }
     }
 
     return { status: 'ok' };

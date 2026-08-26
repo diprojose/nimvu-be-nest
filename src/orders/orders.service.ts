@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
@@ -14,12 +15,36 @@ import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly mailService: MailService,
     private readonly shippingService: ShippingService,
     private readonly discountsService: DiscountsService,
   ) { }
+
+  /**
+   * Envia un correo dejando rastro de si salio o no.
+   *
+   * Antes estas llamadas iban sueltas, sin `await` ni `catch`: si el SMTP
+   * fallaba, la promesa se rechazaba en el vacio y no quedaba ni una linea en
+   * los logs, asi que un cliente sin correo de confirmacion era imposible de
+   * diagnosticar. Se espera el envio a proposito (el pedido ya esta guardado,
+   * lo unico que se demora es la respuesta) y el error se traga: que falle un
+   * correo no puede tumbar una orden que ya se cobro.
+   */
+  private async sendMail(
+    descripcion: string,
+    envio: Promise<unknown>,
+  ): Promise<void> {
+    try {
+      await envio;
+      this.logger.log(`Correo enviado: ${descripcion}`);
+    } catch (error) {
+      this.logger.error(`FALLO el correo: ${descripcion}`, error as any);
+    }
+  }
 
   /**
    * Calcula el descuento de un cupón sobre los items ya valorados por el
@@ -221,7 +246,10 @@ export class OrdersService {
     // Send emails: the standard create method already sends order confirmation and admin alert.
     // If it's a new user, we also send the guest welcome email.
     if (isNewUser) {
-      this.mailService.sendGuestWelcome(user, generatedPassword);
+      await this.sendMail(
+        `bienvenida de invitado a ${user.email}`,
+        this.mailService.sendGuestWelcome(user, generatedPassword),
+      );
     }
 
     return order;
@@ -405,8 +433,14 @@ export class OrdersService {
 
     // Send emails ONLY if it is Cash On Delivery, otherwise wait for Wompi payment confirmation
     if (paymentMethod === 'CASH_ON_DELIVERY') {
-      this.mailService.sendOrderConfirmation(user, order);
-      this.mailService.sendAdminOrderAlert(user, order);
+      await this.sendMail(
+        `confirmacion de la orden ${order.id} (contraentrega) a ${user.email}`,
+        this.mailService.sendOrderConfirmation(user, order),
+      );
+      await this.sendMail(
+        `aviso al admin de la orden ${order.id}`,
+        this.mailService.sendAdminOrderAlert(user, order),
+      );
     }
 
     return order;
@@ -465,8 +499,14 @@ export class OrdersService {
 
     // Automatically send purchase confirmation if Wompi payment is successfully processed and the order hits PROCESSING
     if (updateOrderDto.status === 'PROCESSING') {
-      this.mailService.sendOrderConfirmation(updated.user, updated);
-      this.mailService.sendAdminOrderAlert(updated.user, updated);
+      await this.sendMail(
+        `confirmacion de la orden ${updated.id} a ${updated.user?.email}`,
+        this.mailService.sendOrderConfirmation(updated.user, updated),
+      );
+      await this.sendMail(
+        `aviso al admin de la orden ${updated.id}`,
+        this.mailService.sendAdminOrderAlert(updated.user, updated),
+      );
     }
 
     // Notify customer when tracking is added or changes
@@ -476,7 +516,10 @@ export class OrdersService {
       (updated.trackingNumber !== previous?.trackingNumber ||
         updated.shippingCarrier !== previous?.shippingCarrier);
     if (trackingChanged) {
-      this.mailService.sendShippingNotification(updated.user, updated);
+      await this.sendMail(
+        `guia ${updated.trackingNumber} de la orden ${updated.id} a ${updated.user?.email}`,
+        this.mailService.sendShippingNotification(updated.user, updated),
+      );
     }
 
     return updated;
