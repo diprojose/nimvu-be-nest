@@ -175,6 +175,11 @@ model Variant {
   images     String[]
   sku        String      @unique
   orderItems OrderItem[]
+
+  /// Variante que se ofrece por defecto: la que agregan los carruseles y las
+  /// tarjetas de producto con un solo clic, y la primera que ve el cliente en
+  /// la ficha. Se garantiza exactamente una por producto desde el servicio.
+  isDefault  Boolean     @default(false)
 }
 
 model Order {
