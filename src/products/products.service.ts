@@ -23,22 +23,6 @@ export class ProductsService {
       .replace(/[\u0300-\u036f]/g, ''); // Removes diacritical marks
   }
 
-  /**
-   * Garantiza exactamente una variante principal por producto: respeta la que
-   * venga marcada (la primera, si vienen varias) y si no viene ninguna marca la
-   * primera. Sin esto un producto podría quedar sin principal —y entonces el
-   * carrusel del carrito no sabría cuál ofrecer con un solo clic— o con varias,
-   * que es igual de ambiguo.
-   */
-  private normalizarVariantePrincipal<T extends { isDefault?: boolean }>(
-    variants: T[] | undefined,
-  ): T[] | undefined {
-    if (!variants || variants.length === 0) return variants;
-    const marcada = variants.findIndex((v) => v.isDefault);
-    const principal = marcada >= 0 ? marcada : 0;
-    return variants.map((v, i) => ({ ...v, isDefault: i === principal }));
-  }
-
   async create(createProductDto: CreateProductDto) {
     const { variants, ...productData } = createProductDto;
     const slug = productData.slug || this.slugify(productData.name);
@@ -54,9 +38,9 @@ export class ProductsService {
         slug,
         categoryId: createProductDto.categoryId,
         universeId,
-        variants: { create: this.normalizarVariantePrincipal(variants) },
+        variants: { create: variants },
       },
-      include: { variants: { orderBy: { isDefault: 'desc' } } },
+      include: { variants: true },
     });
 
     this.revalidation.revalidate(['products', 'collections', 'categories', 'universes']);
@@ -114,11 +98,7 @@ export class ProductsService {
     return this.prisma.product.findMany({
       where,
       orderBy: { createdAt: 'asc' },
-      include: {
-        variants: { orderBy: { isDefault: 'desc' } },
-        category: true,
-        universe: true,
-      },
+      include: { variants: true, category: true, universe: true },
     });
   }
 
@@ -131,11 +111,7 @@ export class ProductsService {
 
     const product = await this.prisma.product.findUnique({
       where,
-      include: {
-        variants: { orderBy: { isDefault: 'desc' } },
-        category: true,
-        universe: true,
-      },
+      include: { variants: true, category: true, universe: true },
     });
 
     if (!product) return null;
@@ -185,16 +161,14 @@ export class ProductsService {
         });
 
         if (variants !== undefined) {
-          const normalizadas = this.normalizarVariantePrincipal(variants) ?? [];
-
           // Delete variants whose SKU is no longer in the submitted list
-          const submittedSkus = normalizadas.map((v) => v.sku).filter((s): s is string => !!s);
+          const submittedSkus = variants.map((v) => v.sku).filter((s): s is string => !!s);
           await prisma.variant.deleteMany({
             where: { productId: id, sku: { notIn: submittedSkus } },
           });
 
           // Update existing variants by ID, create new ones
-          for (const variant of normalizadas) {
+          for (const variant of variants) {
             const { id: variantId, ...variantData } = variant as any;
             if (variantId) {
               await prisma.variant.update({

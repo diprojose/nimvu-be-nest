@@ -35,11 +35,6 @@ export class CreateVariantDto {
   @IsString({ each: true })
   @IsOptional()
   images?: string[];
-
-  /** Marca esta variante como la principal del producto. */
-  @IsBoolean()
-  @IsOptional()
-  isDefault?: boolean;
 }
 
 export class CreateProductDto {
