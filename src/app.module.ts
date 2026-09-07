@@ -20,6 +20,7 @@ import { BannersModule } from './banners/banners.module';
 import { CommonModule } from './common/common.module';
 import { PostSaleModule } from './post-sale/post-sale.module';
 import { CheckoutLeadsModule } from './checkout-leads/checkout-leads.module';
+import { PricingModule } from './pricing/pricing.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { CheckoutLeadsModule } from './checkout-leads/checkout-leads.module';
     CommonModule,
     PostSaleModule,
     CheckoutLeadsModule,
+    PricingModule,
   ],
   controllers: [AppController],
 

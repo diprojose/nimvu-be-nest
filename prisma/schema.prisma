@@ -338,6 +338,51 @@ model Expense {
   updatedAt   DateTime        @updatedAt
 }
 
+/// Parametros con los que se costea un producto impreso en 3D.
+///
+/// Es una fila unica (id fijo "default"): el negocio tiene un solo juego de
+/// costos vigente, y tenerlos aqui y no en el codigo permite que suban el
+/// filamento o la luz sin tocar un deploy.
+model PricingSettings {
+  id String @id @default("default")
+
+  /// COP por kilo de filamento, tal como se compra el rollo.
+  filamentPricePerKg Float @default(80000)
+  /// Fraccion de material que se pierde en fallos y purga (0.06 = 6%).
+  /// Va sobre el material y no como costo fijo porque una pieza grande que
+  /// falla desperdicia mucho mas que una pequena.
+  wastePercent       Float @default(0.06)
+
+  /// Consumo medio de la impresora mientras imprime, en vatios.
+  printerWatts      Float @default(120)
+  /// COP por kWh de la factura.
+  energyPricePerKwh Float @default(950)
+
+  /// Lo que costo la impresora y cuantas horas de impresion se espera que dure.
+  /// De aqui sale la depreciacion por hora, que pesa bastante mas que la luz.
+  printerCost      Float @default(3000000)
+  printerLifeHours Float @default(5000)
+
+  /// COP por hora de trabajo manual: quitar soportes, lijar, armar, empacar.
+  laborPricePerHour Float @default(15000)
+
+  /// Empaque y consumibles que no dependen del tamano de la pieza.
+  packagingCost Float @default(2000)
+
+  /// Margen objetivo SOBRE EL PRECIO (0.5 = 50%), no un multiplicador sobre el
+  /// costo: asi "quiero 50%" da 50% de verdad y se puede comparar contra lo que
+  /// queda despues de la comision y del envio gratis.
+  targetMargin Float @default(0.5)
+
+  /// Comision de la pasarela, solo para mostrar el margen que queda de verdad.
+  paymentFeePercent Float @default(0.0315)
+
+  /// A cuanto se redondea hacia arriba el precio sugerido.
+  roundingStep Float @default(500)
+
+  updatedAt DateTime @updatedAt
+}
+
 model ShippingRate {
   id        String   @id @default(uuid())
   country   String

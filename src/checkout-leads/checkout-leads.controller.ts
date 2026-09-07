@@ -40,6 +40,12 @@ export class CheckoutLeadsController {
   }
 
   @AdminOnly()
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.checkoutLeadsService.findOne(id);
+  }
+
+  @AdminOnly()
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateCheckoutLeadDto) {
     return this.checkoutLeadsService.update(id, dto);

@@ -3,6 +3,10 @@ import { CheckoutLead, CheckoutLeadStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpsertCheckoutLeadDto } from './dto/upsert-checkout-lead.dto';
 import { UpdateCheckoutLeadDto } from './dto/update-checkout-lead.dto';
+import {
+  ShippingService,
+  FREE_SHIPPING_THRESHOLD,
+} from '../shipping/shipping.service';
 
 /** Snapshot del carrito, resuelto en el servidor para que el precio sea real. */
 type LeadItemSnapshot = {
@@ -25,7 +29,10 @@ type LeadItemSnapshot = {
  */
 @Injectable()
 export class CheckoutLeadsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly shipping: ShippingService,
+  ) {}
 
   /**
    * Guarda o refresca el lead del navegador. Se llama varias veces por visita
@@ -115,11 +122,119 @@ export class CheckoutLeadsService {
       converted: this.isConverted(lead, converted),
     }));
 
-    return includeConverted
+    const visible = includeConverted
       ? decorated
       : decorated.filter(
           (lead) => !lead.converted && lead.status !== CheckoutLeadStatus.LOST,
         );
+
+    // El envio se calcula solo sobre lo que se va a mostrar: resolverlo para
+    // leads ya convertidos o perdidos seria trabajo tirado a la basura.
+    return this.withShipping(visible);
+  }
+
+  /**
+   * Un lead concreto, con el envio ya resuelto.
+   *
+   * Lo usa el editor de ordenes manuales para precargar el carrito abandonado,
+   * asi que a diferencia de findAll no esconde los convertidos ni los perdidos:
+   * quien abre el link ya decidio que quiere trabajar ese lead. El flag
+   * `converted` viaja igual para poder advertirle que ya existe una orden.
+   */
+  async findOne(id: string) {
+    const lead = await this.prisma.checkoutLead.findUnique({ where: { id } });
+    if (!lead) throw new NotFoundException('Lead no encontrado');
+
+    const converted = await this.findConvertedEmails([lead]);
+    const [decorated] = await this.withShipping([
+      { ...lead, converted: this.isConverted(lead, converted) },
+    ]);
+
+    return decorated;
+  }
+
+  /**
+   * Zona de envio del snapshot de direccion.
+   *
+   * Hay que leer dos formas distintas: el invitado guarda la direccion tal como
+   * la escribio en el formulario (address_1 / province) y el cliente con sesion
+   * guarda la que devuelve la API (street / state). El tipo Address del store
+   * declara province en ambos casos, pero al leer nunca se mapea, asi que la
+   * forma real depende de si habia sesion.
+   */
+  private readZone(shippingAddress: unknown) {
+    if (!shippingAddress || typeof shippingAddress !== 'object') return null;
+
+    const addr = shippingAddress as Record<string, unknown>;
+    const text = (value: unknown) =>
+      typeof value === 'string' && value.trim() ? value.trim() : undefined;
+
+    const city = text(addr.city);
+    const state = text(addr.state) ?? text(addr.province);
+
+    if (!city && !state) return null;
+    return { city, state };
+  }
+
+  /**
+   * Agrega a cada lead el envio que le corresponde y cuanto le falta al carrito
+   * para el envio gratis. Son los dos numeros con los que se negocia el cierre
+   * por WhatsApp: la tarifa es fija por zona, asi que se puede derivar de la
+   * direccion en vez de guardarla en la captura.
+   *
+   * Se usan las tarifas VIGENTES, no las del dia de la captura: el precio que
+   * importa es el que se va a ofrecer hoy.
+   */
+  private async withShipping<T extends CheckoutLead & { converted: boolean }>(
+    leads: T[],
+  ) {
+    // La tarifa se consulta una vez por zona y no una vez por lead: los leads
+    // se repiten mucho entre Bogota y las capitales, y sin esto cada carga de
+    // la lista disparaba cientos de consultas.
+    const rateByZone = new Map<string, number>();
+
+    const rateFor = async (zone: { city?: string; state?: string }) => {
+      const key = `${zone.state ?? ''}|${zone.city ?? ''}`.toLowerCase();
+      const cached = rateByZone.get(key);
+      if (cached !== undefined) return cached;
+
+      // subtotal 0 fuerza la busqueda de tarifa saltandose el envio gratis:
+      // aqui se quiere la tarifa pelada de la zona, y el umbral se aplica
+      // aparte porque depende del subtotal de cada lead.
+      const rate = await this.shipping.resolveShippingCost({
+        subtotal: 0,
+        state: zone.state,
+        city: zone.city,
+      });
+      rateByZone.set(key, rate);
+      return rate;
+    };
+
+    const result: (T & {
+      shippingCost: number | null;
+      freeShippingGap: number | null;
+    })[] = [];
+
+    for (const lead of leads) {
+      if (lead.subtotal >= FREE_SHIPPING_THRESHOLD) {
+        // Ya tenia envio gratis, asi que el abandono no fue por el envio.
+        // Distinguirlo importa: cambia por completo lo que hay que preguntarle
+        // al cliente.
+        result.push({ ...lead, shippingCost: 0, freeShippingGap: null });
+        continue;
+      }
+
+      const zone = this.readZone(lead.shippingAddress);
+      result.push({
+        ...lead,
+        // null y no un numero inventado: sin direccion no se sabe la zona, y
+        // mostrar una tarifa cualquiera llevaria a ofrecer un precio erroneo.
+        shippingCost: zone ? await rateFor(zone) : null,
+        freeShippingGap: FREE_SHIPPING_THRESHOLD - lead.subtotal,
+      });
+    }
+
+    return result;
   }
 
   /** email -> fechas de ordenes no canceladas, para cruzar contra capturedAt. */
