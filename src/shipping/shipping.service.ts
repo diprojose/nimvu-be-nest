@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateShippingDto } from './dto/create-shipping.dto';
 import { UpdateShippingDto } from './dto/update-shipping.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import type { ShippingRate } from '@prisma/client';
 
 /**
  * Umbral (en COP) a partir del cual el envío es gratis.
@@ -53,49 +54,74 @@ export class ShippingService {
   }
 
   /**
+   * Precedencia ciudad → departamento → país sobre una lista de tarifas ya
+   * cargada. Es la unica definicion de esa precedencia: tanto la busqueda
+   * suelta como el resolvedor por lotes pasan por aqui, para que no puedan
+   * separarse con el tiempo.
+   */
+  private pickRate(
+    rates: ShippingRate[],
+    country: string,
+    state?: string,
+    city?: string,
+  ): ShippingRate | null {
+    const targetCity = city ? city.trim() : null;
+    const targetState = state ? state.trim() : null;
+
+    const eq = (value: string | null, target: string | null) =>
+      (value ?? '').toLowerCase() === (target ?? '').toLowerCase();
+    const blank = (value: string | null) => value === null || value === '';
+
+    const sameCountry = (r: ShippingRate) => eq(r.country, country);
+
+    // 1. Ciudad exacta (pais + departamento + ciudad).
+    if (targetCity && targetState) {
+      const cityRate = rates.find(
+        (r) =>
+          sameCountry(r) && eq(r.state, targetState) && eq(r.city, targetCity),
+      );
+      if (cityRate) return cityRate;
+    }
+
+    // 2. Departamento (ciudad vacia).
+    if (targetState) {
+      const stateRate = rates.find(
+        (r) => sameCountry(r) && eq(r.state, targetState) && blank(r.city),
+      );
+      if (stateRate) return stateRate;
+    }
+
+    // 3. Pais (departamento y ciudad vacios).
+    return (
+      rates.find(
+        (r) => sameCountry(r) && blank(r.state) && blank(r.city),
+      ) ?? null
+    );
+  }
+
+  /**
+   * Resolvedor que carga las tarifas UNA sola vez y despues resuelve en
+   * memoria.
+   *
+   * Existe para listas: costear el envio de N filas llamando findRate por cada
+   * una disparaba hasta 3 consultas por fila. Con 18 zonas distintas en la
+   * lista de carritos abandonados eran ~54 idas y vueltas a la base, y el
+   * endpoint tardaba mas de 7 segundos. Las tarifas son un punado de filas, asi
+   * que traerlas todas de una sale mucho mas barato que buscarlas una por una.
+   */
+  async createRateResolver() {
+    const rates = await this.prisma.shippingRate.findMany();
+    return (country: string, state?: string, city?: string) =>
+      this.pickRate(rates, country, state, city);
+  }
+
+  /**
    * Busca la tarifa de envío más específica para una ubicación
    * (ciudad → departamento → país). Devuelve `null` si no encuentra ninguna.
    */
   async findRate(country: string, state?: string, city?: string) {
-    const targetCity = city ? city.trim() : null;
-    const targetState = state ? state.trim() : null;
-
-    // 1. Try City match (Exact match on Country + State + City)
-    if (targetCity && targetState) {
-      const cityRate = await this.prisma.shippingRate.findFirst({
-        where: {
-          country: { equals: country, mode: 'insensitive' },
-          state: { equals: targetState, mode: 'insensitive' },
-          city: { equals: targetCity, mode: 'insensitive' },
-        },
-      });
-      if (cityRate) return cityRate;
-    }
-
-    // 2. Try State match (City is null OR empty string)
-    if (targetState) {
-      const stateRate = await this.prisma.shippingRate.findFirst({
-        where: {
-          country: { equals: country, mode: 'insensitive' },
-          state: { equals: targetState, mode: 'insensitive' },
-          OR: [{ city: null }, { city: '' }],
-        },
-      });
-      if (stateRate) return stateRate;
-    }
-
-    // 3. Try Country match (State & City are null OR empty string)
-    const countryRate = await this.prisma.shippingRate.findFirst({
-      where: {
-        country: { equals: country, mode: 'insensitive' },
-        OR: [{ state: null }, { state: '' }],
-        AND: {
-          OR: [{ city: null }, { city: '' }],
-        },
-      },
-    });
-
-    return countryRate ?? null;
+    const rates = await this.prisma.shippingRate.findMany();
+    return this.pickRate(rates, country, state, city);
   }
 
   async calculate(country: string, state?: string, city?: string) {

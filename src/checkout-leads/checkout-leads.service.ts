@@ -6,6 +6,7 @@ import { UpdateCheckoutLeadDto } from './dto/update-checkout-lead.dto';
 import {
   ShippingService,
   FREE_SHIPPING_THRESHOLD,
+  DEFAULT_SHIPPING_COST,
 } from '../shipping/shipping.service';
 
 /** Snapshot del carrito, resuelto en el servidor para que el precio sea real. */
@@ -188,27 +189,11 @@ export class CheckoutLeadsService {
   private async withShipping<T extends CheckoutLead & { converted: boolean }>(
     leads: T[],
   ) {
-    // La tarifa se consulta una vez por zona y no una vez por lead: los leads
-    // se repiten mucho entre Bogota y las capitales, y sin esto cada carga de
-    // la lista disparaba cientos de consultas.
-    const rateByZone = new Map<string, number>();
-
-    const rateFor = async (zone: { city?: string; state?: string }) => {
-      const key = `${zone.state ?? ''}|${zone.city ?? ''}`.toLowerCase();
-      const cached = rateByZone.get(key);
-      if (cached !== undefined) return cached;
-
-      // subtotal 0 fuerza la busqueda de tarifa saltandose el envio gratis:
-      // aqui se quiere la tarifa pelada de la zona, y el umbral se aplica
-      // aparte porque depende del subtotal de cada lead.
-      const rate = await this.shipping.resolveShippingCost({
-        subtotal: 0,
-        state: zone.state,
-        city: zone.city,
-      });
-      rateByZone.set(key, rate);
-      return rate;
-    };
+    // Las tarifas se traen UNA vez y se resuelven en memoria. Antes esto
+    // llamaba a findRate por zona, que a su vez hacia hasta 3 consultas: con 18
+    // zonas distintas eran ~54 idas y vueltas a la base y el endpoint tardaba
+    // mas de 7 segundos.
+    const rateFor = await this.shipping.createRateResolver();
 
     const result: (T & {
       shippingCost: number | null;
@@ -229,7 +214,10 @@ export class CheckoutLeadsService {
         ...lead,
         // null y no un numero inventado: sin direccion no se sabe la zona, y
         // mostrar una tarifa cualquiera llevaria a ofrecer un precio erroneo.
-        shippingCost: zone ? await rateFor(zone) : null,
+        shippingCost: zone
+          ? (rateFor('Colombia', zone.state, zone.city)?.price ??
+            DEFAULT_SHIPPING_COST)
+          : null,
         freeShippingGap: FREE_SHIPPING_THRESHOLD - lead.subtotal,
       });
     }

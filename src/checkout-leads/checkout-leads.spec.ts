@@ -59,16 +59,16 @@ function buildLead(overrides: Record<string, unknown> = {}) {
 
 describe('CheckoutLeadsService · envio de los leads', () => {
   let service: CheckoutLeadsService;
-  let findRate: jest.Mock;
+  let findManyRates: jest.Mock;
 
   beforeEach(async () => {
-    // Tarifa real de Nimvu: fija por zona, Bogota/Cundinamarca mas barato.
-    findRate = jest.fn(({ where }) => {
-      const state = (where?.state?.equals ?? '').toLowerCase();
-      if (state === 'cundinamarca') return Promise.resolve({ price: BOGOTA });
-      if (state) return Promise.resolve({ price: RESTO });
-      return Promise.resolve(null);
-    });
+    // Las tarifas reales de Nimvu: Cundinamarca aparte y el resto del pais por
+    // la regla de pais. Se mockea la tabla entera y no la busqueda para que la
+    // precedencia ciudad -> departamento -> pais se ejercite de verdad.
+    findManyRates = jest.fn().mockResolvedValue([
+      { id: 'r1', country: 'Colombia', state: 'Cundinamarca', city: null, price: BOGOTA },
+      { id: 'r2', country: 'Colombia', state: null, city: null, price: RESTO },
+    ]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -79,7 +79,7 @@ describe('CheckoutLeadsService · envio de los leads', () => {
           useValue: {
             checkoutLead: { findMany: jest.fn() },
             order: { findMany: jest.fn().mockResolvedValue([]) },
-            shippingRate: { findFirst: findRate },
+            shippingRate: { findMany: findManyRates },
           },
         },
       ],
@@ -167,19 +167,16 @@ describe('CheckoutLeadsService · envio de los leads', () => {
     });
   });
 
-  it('consulta la tarifa una vez por zona y no una vez por lead', async () => {
+  it('trae las tarifas una sola vez, sin importar cuantas zonas haya', async () => {
     await runWith([
       buildLead({ id: 'a' }),
       buildLead({ id: 'b' }),
       buildLead({ id: 'c', shippingAddress: userAddress('Antioquia', 'Medellin') }),
+      buildLead({ id: 'd', shippingAddress: userAddress('Valle', 'Cali') }),
     ]);
 
-    // Tres leads en dos zonas. findRate se llama hasta 3 veces por zona
-    // (ciudad, departamento, pais), asi que lo que importa es que la segunda
-    // Bogota no vuelva a pegarle a la base.
-    const zonasConsultadas = new Set(
-      findRate.mock.calls.map((c) => c[0]?.where?.state?.equals),
-    );
-    expect(zonasConsultadas.size).toBe(2);
+    // Antes se llamaba a findRate por zona y cada llamada hacia hasta 3
+    // consultas: el endpoint tardaba mas de 7 segundos contra la base remota.
+    expect(findManyRates).toHaveBeenCalledTimes(1);
   });
 });
