@@ -97,6 +97,7 @@ model User {
   updatedAt           DateTime  @updatedAt
   orders              Order[]
   addresses           Address[]
+  reviews             Review[]
 }
 
 model Product {
@@ -128,6 +129,13 @@ model Product {
   discountPrice   Float?
   discountEndDate DateTime?
   discounts       Discount[]
+  reviews         Review[]
+  /// Agregados denormalizados de las resenas APPROVED. Se recalculan en la
+  /// misma transaccion que modera una resena (ver ReviewsService). Existen
+  /// para que el catalogo pueda pintar estrellas en cada tarjeta sin agregar
+  /// sobre Review en cada carga.
+  ratingAverage   Float          @default(0)
+  ratingCount     Int            @default(0)
 }
 
 enum DiscountType {
@@ -193,6 +201,7 @@ model Order {
   trackingNumber    String?
   items             OrderItem[]
   postSaleCases     PostSaleCase[]
+  reviews           Review[]
 }
 
 /// Datos de contacto capturados en el checkout ANTES de que el cliente le de
@@ -440,4 +449,47 @@ model PostSaleItem {
   note            String?
 
   @@index([caseId])
+}
+
+// ── Resenas de producto ────────────────────────────────────────────────────
+
+/// Toda resena nace PENDING: nada escrito por un cliente llega a la tienda sin
+/// que el admin lo haya visto. REJECTED se conserva en vez de borrarse para no
+/// perder el rastro de lo que se modero.
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// Resena de un producto. Solo puede dejarla quien lo compro: se exige una
+/// orden DELIVERED del mismo usuario que incluya el producto (ver
+/// ReviewsService.findPurchaseOrder). Eso es lo que sostiene el sello de
+/// "Compra verificada" en la tienda.
+model Review {
+  id         String       @id @default(uuid())
+  productId  String
+  product    Product      @relation(fields: [productId], references: [id])
+  userId     String
+  user       User         @relation(fields: [userId], references: [id])
+  /// Orden que acredita la compra. Se guarda en vez de recalcularse para dejar
+  /// constancia de con cual compra se gano el derecho a resenar.
+  orderId    String
+  order      Order        @relation(fields: [orderId], references: [id])
+  /// 1 a 5. El rango se valida en CreateReviewDto.
+  rating     Int
+  comment    String
+  /// Nombre mostrado, congelado al crear: si el cliente cambia su perfil mas
+  /// tarde, la resena ya publicada no cambia de autor.
+  authorName String
+  status     ReviewStatus @default(PENDING)
+  /// Respuesta publica de Nimvu a la resena.
+  adminReply String?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  /// Una resena por cliente y producto.
+  @@unique([userId, productId])
+  @@index([productId, status])
+  @@index([status, createdAt])
 }
