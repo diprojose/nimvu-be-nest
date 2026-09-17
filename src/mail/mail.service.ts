@@ -157,6 +157,56 @@ export class MailService {
     });
   }
 
+  /**
+   * Pide resena despues de entregar. Cada producto lleva su propio enlace
+   * firmado, asi el cliente opina sin iniciar sesion: tener el enlace ya prueba
+   * acceso al buzon al que se envio la compra.
+   */
+  async sendReviewRequest(
+    user: any,
+    items: Array<{ name: string; image?: string; url: string }>,
+  ) {
+    if (!items.length) return;
+
+    const cards = items
+      .map(
+        (item) => `
+          <tr>
+            <td style="padding: 12px 0; border-bottom: 1px solid #eee;">
+              <table style="width: 100%;"><tr>
+                <td style="width: 68px;">
+                  ${item.image ? `<img src="${item.image}" width="56" height="56" style="border-radius: 6px; object-fit: cover;" alt="" />` : ''}
+                </td>
+                <td>
+                  <p style="margin: 0 0 8px; font-weight: bold; color: #000;">${item.name}</p>
+                  <a href="${item.url}" style="background: #000; color: #fff; padding: 8px 18px; text-decoration: none; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; display: inline-block;">Calificar</a>
+                </td>
+              </tr></table>
+            </td>
+          </tr>`,
+      )
+      .join('');
+
+    await this.mailerService.sendMail({
+      to: user.email,
+      subject: '¿Qué te pareció tu pedido? - Nimvu',
+      html: `
+        <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+          <div style="background: #000; padding: 20px 24px; border-radius: 8px 8px 0 0;">
+            <h1 style="color: #fff; margin: 0; font-size: 22px; letter-spacing: 2px;">NIMVU</h1>
+          </div>
+          <div style="background: #f9f9f9; padding: 32px 24px; border: 1px solid #eee; border-top: none; border-radius: 0 0 8px 8px;">
+            <h2 style="color: #000; font-size: 20px; margin-top: 0;">¿Cómo te fue con tu pedido?</h2>
+            <p>Hola${user.name ? ` ${user.name}` : ''}, tu pedido ya llegó. Nos ayudaría muchísimo saber qué te pareció.</p>
+            <p style="color: #666; font-size: 14px;">Toma menos de un minuto y no necesitas iniciar sesión.</p>
+            <table style="width: 100%; margin: 24px 0;">${cards}</table>
+            <p style="color: #888; font-size: 13px;">Revisamos las reseñas antes de publicarlas. Los enlaces vencen en 90 días.</p>
+          </div>
+        </div>
+      `,
+    });
+  }
+
   async sendAbandonedCartEmail(user: any, order: any) {
     const itemRows = (order.items ?? [])
       .map((item: any) => {

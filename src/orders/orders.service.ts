@@ -11,6 +11,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
 import { ShippingService } from '../shipping/shipping.service';
 import { DiscountsService } from '../discounts/discounts.service';
+import { ReviewTokenService } from '../reviews/review-token.service';
+import { OrderStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -22,6 +24,7 @@ export class OrdersService {
     private readonly mailService: MailService,
     private readonly shippingService: ShippingService,
     private readonly discountsService: DiscountsService,
+    private readonly reviewToken: ReviewTokenService,
   ) { }
 
   /**
@@ -480,7 +483,7 @@ export class OrdersService {
   async update(id: string, updateOrderDto: UpdateOrderDto) {
     const previous = await this.prisma.order.findUnique({
       where: { id },
-      select: { trackingNumber: true, shippingCarrier: true },
+      select: { trackingNumber: true, shippingCarrier: true, status: true },
     });
 
     const updated = await this.prisma.order.update({
@@ -522,7 +525,64 @@ export class OrdersService {
       );
     }
 
+    // Pedir resena al entregar. Solo en la transicion hacia DELIVERED: sin
+    // comparar contra el estado anterior, cualquier edicion posterior de una
+    // orden ya entregada volveria a enviar el correo.
+    const justDelivered =
+      updated.status === OrderStatus.DELIVERED &&
+      previous?.status !== OrderStatus.DELIVERED;
+    if (justDelivered) {
+      await this.sendReviewRequest(updated);
+    }
+
     return updated;
+  }
+
+  /**
+   * Correo post-entrega con un enlace firmado por producto.
+   *
+   * Es lo que de verdad trae resenas: el comprador invitado tiene cuenta pero
+   * casi nunca inicia sesion, asi que sin este correo practicamente nadie
+   * llegaria al formulario.
+   */
+  private async sendReviewRequest(order: {
+    id: string;
+    user?: { email?: string | null; name?: string | null } | null;
+    items: Array<{ productId: string; product?: { name?: string; images?: string[] } | null }>;
+  }) {
+    if (!order.user?.email) return;
+
+    // Un mismo producto puede venir en varias lineas (distintas variantes) y
+    // solo se puede resenar una vez.
+    const vistos = new Set<string>();
+    const items = order.items
+      .filter((item) => {
+        if (vistos.has(item.productId)) return false;
+        vistos.add(item.productId);
+        return true;
+      })
+      .flatMap((item) => {
+        // Sin STORE_URL no hay enlace que mandar; ese producto se omite.
+        const url = this.reviewToken.buildUrl({
+          orderId: order.id,
+          productId: item.productId,
+        });
+        if (!url) return [];
+        return [
+          {
+            name: item.product?.name ?? 'tu producto',
+            image: item.product?.images?.[0],
+            url,
+          },
+        ];
+      });
+
+    if (!items.length) return;
+
+    await this.sendMail(
+      `solicitud de resena de la orden ${order.id} a ${order.user.email}`,
+      this.mailService.sendReviewRequest(order.user, items),
+    );
   }
 
   async sendRecoveryEmail(orderId: string) {

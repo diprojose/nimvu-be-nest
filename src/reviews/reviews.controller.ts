@@ -15,6 +15,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { ReviewStatus } from '@prisma/client';
 import { ReviewsService } from './reviews.service';
 import { CreateReviewDto } from './dto/create-review.dto';
+import { CreateReviewByTokenDto } from './dto/create-review-by-token.dto';
 import { ModerateReviewDto } from './dto/moderate-review.dto';
 import { AdminOnly } from '../auth/admin-only.decorator';
 
@@ -54,6 +55,26 @@ export class ReviewsController {
   @UseGuards(AuthGuard('jwt'))
   create(@Body() dto: CreateReviewDto, @Request() req) {
     return this.reviewsService.create(req.user.userId, dto);
+  }
+
+  // ── Enlace del correo post-entrega ───────────────────────────────────────
+
+  /**
+   * Datos para pintar la pagina a la que lleva el correo. Publico a proposito:
+   * el token firmado es la credencial, no la sesion.
+   */
+  @Get('invite')
+  invite(@Query('token') token: string) {
+    return this.reviewsService.getInvite(token);
+  }
+
+  /** Crea la resena desde el enlace, sin sesion iniciada. */
+  @Post('by-token')
+  createByToken(@Body() dto: CreateReviewByTokenDto) {
+    return this.reviewsService.createFromToken(dto.token, {
+      rating: dto.rating,
+      comment: dto.comment,
+    });
   }
 
   // ── Moderacion ───────────────────────────────────────────────────────────

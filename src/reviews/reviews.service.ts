@@ -7,6 +7,7 @@ import {
 import { OrderStatus, Prisma, ReviewStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RevalidationService } from '../common/revalidation.service';
+import { ReviewTokenService } from './review-token.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { ModerateReviewDto } from './dto/moderate-review.dto';
 
@@ -41,6 +42,7 @@ export class ReviewsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly revalidation: RevalidationService,
+    private readonly reviewToken: ReviewTokenService,
   ) {}
 
   /**
@@ -112,6 +114,95 @@ export class ReviewsService {
     } catch (err) {
       // El @@unique([userId, productId]) es la defensa real contra la resena
       // duplicada; getEligibility solo evita llegar hasta aqui.
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2002'
+      ) {
+        throw new ConflictException('Ya dejaste una resena de este producto.');
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Datos para pintar la pagina de resena a la que lleva el correo. Devuelve
+   * `valid: false` en vez de lanzar: la pagina tiene que poder explicarle al
+   * cliente que el enlace vencio, no reventar con un 500.
+   */
+  async getInvite(token: string) {
+    const payload = this.reviewToken.verify(token);
+    if (!payload) return { valid: false as const };
+
+    const [order, product, existing] = await Promise.all([
+      this.prisma.order.findFirst({
+        where: {
+          id: payload.orderId,
+          status: OrderStatus.DELIVERED,
+          items: { some: { productId: payload.productId } },
+        },
+        select: { id: true, user: { select: { name: true, email: true } } },
+      }),
+      this.prisma.product.findUnique({
+        where: { id: payload.productId },
+        select: { id: true, name: true, slug: true, images: true },
+      }),
+      this.prisma.review.findFirst({
+        where: { orderId: payload.orderId, productId: payload.productId },
+        select: { id: true, rating: true, status: true },
+      }),
+    ]);
+
+    // La firma es valida pero la orden ya no califica (se cancelo, se revirtio
+    // el estado, o el producto se borro).
+    if (!order || !product) return { valid: false as const };
+
+    return {
+      valid: true as const,
+      product,
+      alreadyReviewed: !!existing,
+      authorName: order.user?.name?.trim() || order.user?.email?.split('@')[0] || 'Cliente',
+    };
+  }
+
+  /**
+   * Crea la resena desde el enlace del correo, sin sesion iniciada.
+   *
+   * Tener el token prueba acceso al buzon al que se envio la compra, que es la
+   * misma garantia que da el login. La orden se revalida igual contra la base:
+   * el token dice a que compra apunta, no que esa compra siga calificando.
+   */
+  async createFromToken(token: string, dto: { rating: number; comment: string }) {
+    const payload = this.reviewToken.verify(token);
+    if (!payload) {
+      throw new ForbiddenException('El enlace no es valido o ya vencio.');
+    }
+
+    const order = await this.prisma.order.findFirst({
+      where: {
+        id: payload.orderId,
+        status: OrderStatus.DELIVERED,
+        items: { some: { productId: payload.productId } },
+      },
+      select: { id: true, userId: true, user: { select: { name: true, email: true } } },
+    });
+    if (!order) {
+      throw new ForbiddenException('Esta compra ya no permite dejar resena.');
+    }
+
+    try {
+      return await this.prisma.review.create({
+        data: {
+          productId: payload.productId,
+          userId: order.userId,
+          orderId: order.id,
+          rating: dto.rating,
+          comment: dto.comment,
+          authorName:
+            order.user?.name?.trim() || order.user?.email?.split('@')[0] || 'Cliente',
+        },
+        select: { ...PUBLIC_SELECT, status: true },
+      });
+    } catch (err) {
       if (
         err instanceof Prisma.PrismaClientKnownRequestError &&
         err.code === 'P2002'
