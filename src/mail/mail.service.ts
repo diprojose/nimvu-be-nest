@@ -1,6 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
 
+// Nombres legibles del enum PaymentMethod para los correos
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  WOMPI: 'Pago en línea (Wompi)',
+  CASH_ON_DELIVERY: 'Contraentrega',
+  WHATSAPP: 'WhatsApp',
+  MERCADO_LIBRE: 'Mercado Libre',
+};
+
 @Injectable()
 export class MailService {
   constructor(private mailerService: MailerService) {}
@@ -337,6 +345,7 @@ export class MailService {
           .join(', ')
       : 'No especificada';
     const phone = addr?.phone || 'No especificado';
+    const paymentLabel = PAYMENT_METHOD_LABELS[order.paymentMethod] ?? order.paymentMethod ?? 'No especificado';
 
     // Build product rows
     const itemRows = (order.items ?? [])
@@ -390,6 +399,10 @@ export class MailService {
               <tr>
                 <td style="padding:6px 0; font-weight:bold;">Dirección:</td>
                 <td style="padding:6px 0;">${addressLine}</td>
+              </tr>
+              <tr>
+                <td style="padding:6px 0; font-weight:bold;">Método de pago:</td>
+                <td style="padding:6px 0;">${paymentLabel}</td>
               </tr>
             </table>
 
