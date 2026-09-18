@@ -186,7 +186,7 @@ export class WompiService {
           items: {
             include: {
               product: { select: { name: true, images: true } },
-              variant: { select: { name: true } },
+              variant: { select: { name: true, images: true } },
             },
           },
           user: true,

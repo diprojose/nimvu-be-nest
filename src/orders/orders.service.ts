@@ -186,7 +186,7 @@ export class OrdersService {
         items: { create: orderItemsData },
       },
       include: {
-        items: { include: { product: { select: { name: true, images: true } }, variant: { select: { name: true } } } },
+        items: { include: { product: { select: { name: true, images: true } }, variant: { select: { name: true, images: true } } } },
         user: { select: { id: true, email: true, name: true } },
       },
     });
@@ -427,7 +427,7 @@ export class OrdersService {
           items: {
             include: {
               product: { select: { name: true, images: true } },
-              variant: { select: { name: true } },
+              variant: { select: { name: true, images: true } },
             },
           },
         },
@@ -493,7 +493,7 @@ export class OrdersService {
         items: {
           include: {
             product: { select: { name: true, images: true } },
-            variant: { select: { name: true } },
+            variant: { select: { name: true, images: true } },
           },
         },
         user: true,
@@ -593,7 +593,7 @@ export class OrdersService {
         items: {
           include: {
             product: { select: { name: true, images: true } },
-            variant: { select: { name: true } },
+            variant: { select: { name: true, images: true } },
           },
         },
       },

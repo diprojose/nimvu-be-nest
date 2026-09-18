@@ -73,7 +73,11 @@ export class MailService {
         const productName = item.product?.name ?? 'Producto';
         const variantName = item.variant?.name ? ` (${item.variant.name})` : '';
         const subtotal = (item.price * item.quantity).toLocaleString('es-CO');
-        const imageUrl = item.product?.images?.[0] || 'https://via.placeholder.com/60';
+        // La foto de la variante comprada manda sobre la del producto base
+        const imageUrl =
+          item.variant?.images?.[0] ||
+          item.product?.images?.[0] ||
+          'https://via.placeholder.com/60';
         return `
           <tr>
             <td style="padding:12px 8px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:12px;">
@@ -212,7 +216,11 @@ export class MailService {
       .map((item: any) => {
         const productName = item.product?.name ?? 'Producto';
         const variantName = item.variant?.name ? ` (${item.variant.name})` : '';
-        const imageUrl = item.product?.images?.[0] || 'https://via.placeholder.com/60';
+        // La foto de la variante comprada manda sobre la del producto base
+        const imageUrl =
+          item.variant?.images?.[0] ||
+          item.product?.images?.[0] ||
+          'https://via.placeholder.com/60';
         return `
           <tr>
             <td style="padding:10px 8px;border-bottom:1px solid #eee;">
@@ -336,7 +344,11 @@ export class MailService {
         const productName = item.product?.name ?? 'Producto';
         const variantName = item.variant?.name ? ` (${item.variant.name})` : '';
         const subtotal = (item.price * item.quantity).toLocaleString('es-CO');
-        const imageUrl = item.product?.images?.[0] || 'https://via.placeholder.com/60';
+        // La foto de la variante comprada manda sobre la del producto base
+        const imageUrl =
+          item.variant?.images?.[0] ||
+          item.product?.images?.[0] ||
+          'https://via.placeholder.com/60';
         return `
           <tr>
             <td style="padding:12px 8px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:12px;">
