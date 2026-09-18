@@ -46,8 +46,14 @@ function crearPrisma() {
   };
 }
 
-const crearServicio = (prisma: any) =>
-  new ReviewsService(prisma as any, { revalidate: jest.fn() } as any);
+const crearTokens = () => ({
+  create: jest.fn().mockReturnValue('token'),
+  verify: jest.fn().mockReturnValue(null),
+  buildUrl: jest.fn().mockReturnValue(null),
+});
+
+const crearServicio = (prisma: any, revalidation: any = { revalidate: jest.fn() }) =>
+  new ReviewsService(prisma as any, revalidation as any, crearTokens() as any);
 
 describe('ReviewsService - quien puede resenar', () => {
   it('rechaza a quien nunca compro el producto', async () => {
@@ -245,7 +251,7 @@ describe('ReviewsService - promedio del producto', () => {
       productId: PRODUCTO,
     });
     const revalidation = { revalidate: jest.fn() };
-    const servicio = new ReviewsService(prisma as any, revalidation as any);
+    const servicio = crearServicio(prisma, revalidation);
 
     await servicio.moderate('r-1', { status: ReviewStatus.APPROVED });
 
