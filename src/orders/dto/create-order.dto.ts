@@ -43,8 +43,8 @@ class OrderItemDto {
  * Direccion de envio del cliente.
  *
  * Antes viajaba como `object` sin validar y eso dejo entrar pedidos sin ciudad
- * ni departamento: imposibles de cotizar y de despachar. Los campos que se
- * usan para calcular el envio y armar la guia son obligatorios.
+ * ni departamento: imposibles de cotizar y de despachar. Direccion, ciudad y
+ * departamento son obligatorios; nombre y telefono no (ver cada campo).
  *
  * El resto se declara aunque no se valide porque el ValidationPipe corre con
  * `whitelist: true`: una propiedad no declarada se elimina del objeto, y el
@@ -66,15 +66,26 @@ export class ShippingAddressDto {
   @IsNotEmpty({ message: 'El departamento es obligatorio.' })
   province: string;
 
+  /**
+   * Opcional a proposito: las direcciones guardadas en la cuenta no tienen
+   * nombre (el modelo Address no lo guarda), y exigirlo dejo sin poder comprar
+   * a todo cliente con sesion iniciada. Si falta, el servicio usa el nombre de
+   * la cuenta.
+   */
   @Trim()
   @IsString()
-  @IsNotEmpty({ message: 'El nombre de quien recibe es obligatorio.' })
-  first_name: string;
+  @IsOptional()
+  first_name?: string;
 
+  /**
+   * Opcional por lo mismo: hay direcciones guardadas sin telefono y el checkout
+   * no deja editar una direccion guardada. Perder la venta es peor que
+   * coordinar la entrega por correo.
+   */
   @Trim()
   @IsString()
-  @IsNotEmpty({ message: 'El telefono de contacto es obligatorio.' })
-  phone: string;
+  @IsOptional()
+  phone?: string | null;
 
   @IsString()
   @IsOptional()

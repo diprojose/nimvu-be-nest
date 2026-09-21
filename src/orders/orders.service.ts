@@ -28,6 +28,24 @@ export class OrdersService {
   ) { }
 
   /**
+   * Destinatario de la guia cuando la direccion no lo trae.
+   *
+   * Las direcciones guardadas en la cuenta no tienen nombre (el modelo Address
+   * no lo guarda), asi que los pedidos de clientes con sesion llegan sin
+   * `first_name`. Se completa con el nombre de la cuenta; si la direccion ya
+   * trae nombre, se respeta tal cual.
+   */
+  private recipientFallback(
+    addr: { first_name?: string; last_name?: string } | undefined,
+    accountName: string | null | undefined,
+  ): { first_name?: string; last_name?: string } {
+    if (addr?.first_name?.trim()) return {};
+    const [first = '', ...rest] = (accountName || '').trim().split(/\s+/);
+    if (!first) return {};
+    return { first_name: first, last_name: addr?.last_name || rest.join(' ') };
+  }
+
+  /**
    * Envia un correo dejando rastro de si salio o no.
    *
    * Antes estas llamadas iban sueltas, sin `await` ni `catch`: si el SMTP
@@ -405,6 +423,7 @@ export class OrdersService {
 
       const addressWithShipping = {
         ...addr,
+        ...this.recipientFallback(addr, user.name),
         shippingCost: effectiveShippingCost,
         ...(coupon.amount > 0
           ? { couponCode, discount: coupon.amount }

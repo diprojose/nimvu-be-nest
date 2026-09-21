@@ -60,13 +60,29 @@ describe('CreateOrderDto - validacion de direccion de envio', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
-  it('rechaza la direccion vacia y el telefono vacio', async () => {
+  it('rechaza la direccion vacia', async () => {
     await expect(
       transformar(pedido({ ...direccionCompleta, address_1: '   ' })),
     ).rejects.toThrow(BadRequestException);
+  });
+
+  it('acepta la direccion guardada de un cliente con sesion (sin nombre ni telefono)', async () => {
+    // Forma exacta que arma la tienda (store/authStore.js) a partir del modelo
+    // Address, que no guarda nombre. Exigir first_name dejo sin poder comprar a
+    // todo cliente con sesion iniciada; el servicio completa el nombre con el
+    // de la cuenta.
+    const direccionGuardada = {
+      id: 'addr-1',
+      address_1: 'Cra 50b #64-43',
+      city: 'Medellin',
+      province: 'Antioquia',
+      postal_code: '050001',
+      country_code: 'Colombia',
+      phone: null,
+    };
     await expect(
-      transformar(pedido({ ...direccionCompleta, phone: '' })),
-    ).rejects.toThrow(BadRequestException);
+      transformar(pedido(direccionGuardada)),
+    ).resolves.toBeDefined();
   });
 
   it('conserva los campos del snapshot que el servicio guarda', async () => {
