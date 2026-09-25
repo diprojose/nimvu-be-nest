@@ -54,3 +54,8 @@ pids
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Claude Code (local, no compartir)
+.claude/settings.local.json
+.mcp.json
+.playwright-mcp/
