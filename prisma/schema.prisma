@@ -199,6 +199,10 @@ model Order {
   recoveryEmailSent Boolean          @default(false)
   shippingCarrier   ShippingCarrier?
   trackingNumber    String?
+  /// Cuándo se generó la etiqueta de envío. Vive en la orden y no en el
+  /// navegador porque el admin lo usan varias personas: si una imprime el lote,
+  /// las demás tienen que verlo. `null` = todavía sin imprimir.
+  labelPrintedAt    DateTime?
   items             OrderItem[]
   postSaleCases     PostSaleCase[]
   reviews           Review[]

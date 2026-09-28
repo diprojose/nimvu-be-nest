@@ -629,6 +629,23 @@ export class OrdersService {
     return { sent: true };
   }
 
+  /**
+   * Sella (o limpia) la fecha de impresión de etiquetas de un lote de órdenes.
+   *
+   * Se usa `updateMany` a propósito: no dispara correos ni toca el estado de la
+   * orden, solo deja constancia de que la etiqueta ya salió. Imprimir de nuevo
+   * es legítimo —una etiqueta se arruga o la impresora falla—, así que la fecha
+   * se sobreescribe con la más reciente en vez de rechazar el segundo intento.
+   */
+  async markLabelsPrinted(orderIds: string[], printed: boolean) {
+    const result = await this.prisma.order.updateMany({
+      where: { id: { in: orderIds } },
+      data: { labelPrintedAt: printed ? new Date() : null },
+    });
+
+    return { updated: result.count };
+  }
+
   async remove(id: string) {
     // Delete referenced order items first to avoid foreign key constraints
     await this.prisma.orderItem.deleteMany({

@@ -14,6 +14,7 @@ import { OrdersService } from './orders.service';
 import { CreateOrderDto, CreateGuestOrderDto } from './dto/create-order.dto';
 import { CreateManualOrderDto } from './dto/create-manual-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
+import { MarkLabelsPrintedDto } from './dto/mark-labels-printed.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { AdminOnly } from '../auth/admin-only.decorator';
 
@@ -61,6 +62,14 @@ export class OrdersController {
       throw new NotFoundException('Orden no encontrada');
     }
     return order;
+  }
+
+  // Antes de `@Patch(':id')`: Nest resuelve por orden de declaración y si esta
+  // ruta va después, ':id' se queda con "labels" y nunca llega aquí.
+  @AdminOnly()
+  @Patch('labels/printed')
+  markLabelsPrinted(@Body() dto: MarkLabelsPrintedDto) {
+    return this.ordersService.markLabelsPrinted(dto.orderIds, dto.printed ?? true);
   }
 
   @AdminOnly()
