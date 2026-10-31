@@ -4,7 +4,7 @@ import { RegisterUserDto } from './dto/register-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
-import { Role } from '@prisma/client';
+import { OrderStatus, Role } from '@prisma/client';
 import { MailService } from '../mail/mail.service';
 
 /**
@@ -22,6 +22,9 @@ const PUBLIC_USER_SELECT = {
   createdAt: true,
   updatedAt: true,
 } as const;
+
+/** Pedidos que no representan una compra concretada. */
+const UNPAID_ORDER_STATUSES: OrderStatus[] = [OrderStatus.PENDING, OrderStatus.CANCELLED];
 
 @Injectable()
 export class UsersService {
@@ -57,13 +60,34 @@ export class UsersService {
     return user;
   }
 
-  findAll() {
-    return this.prisma.user.findMany({
+  /**
+   * Lista para el admin. Además de los datos del usuario calcula cuántos
+   * pedidos ha pagado de verdad (`paidOrdersCount`) y cuántos abandonó
+   * (`unpaidOrdersCount`, PENDING o CANCELLED), para poder detectar a quien
+   * se registró o intentó comprar y no concretó.
+   */
+  async findAll() {
+    const users = await this.prisma.user.findMany({
       select: {
         ...PUBLIC_USER_SELECT,
         addresses: true,
+        orders: { select: { status: true, createdAt: true } },
       },
       orderBy: { createdAt: 'desc' },
+    });
+
+    return users.map(({ orders, ...user }) => {
+      const paid = orders.filter((o) => !UNPAID_ORDER_STATUSES.includes(o.status));
+      const lastOrder = orders.reduce<Date | null>(
+        (latest, o) => (!latest || o.createdAt > latest ? o.createdAt : latest),
+        null,
+      );
+      return {
+        ...user,
+        paidOrdersCount: paid.length,
+        unpaidOrdersCount: orders.length - paid.length,
+        lastOrderAt: lastOrder,
+      };
     });
   }
 
