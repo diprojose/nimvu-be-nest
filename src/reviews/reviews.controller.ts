@@ -40,6 +40,14 @@ export class ReviewsController {
     );
   }
 
+  /** Resenas recientes de toda la tienda para el home. Publico. */
+  @Get('featured')
+  findFeatured(
+    @Query('take', new ParseIntPipe({ optional: true })) take?: number,
+  ) {
+    return this.reviewsService.findFeatured(Math.min(take ?? 6, 20));
+  }
+
   /**
    * Si el cliente puede resenar este producto. La tienda lo consulta para
    * decidir si muestra el formulario en vez de ofrecerlo y luego rechazarlo.

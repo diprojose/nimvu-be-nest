@@ -231,6 +231,23 @@ export class ReviewsService {
     return { items, total };
   }
 
+  /**
+   * Resenas recientes de cualquier producto, para el home. Solo APPROVED y de
+   * 4 estrellas o mas: es una vitrina, no el historial completo (ese vive en
+   * cada ficha). Trae el producto para poder enlazarlo y mostrar su foto.
+   */
+  findFeatured(take = 6) {
+    return this.prisma.review.findMany({
+      where: { status: ReviewStatus.APPROVED, rating: { gte: 4 } },
+      select: {
+        ...PUBLIC_SELECT,
+        product: { select: { name: true, slug: true, images: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take,
+    });
+  }
+
   /** Cola de moderacion. Las pendientes primero, que es lo que hay que trabajar. */
   findAllForAdmin(status?: ReviewStatus) {
     return this.prisma.review.findMany({

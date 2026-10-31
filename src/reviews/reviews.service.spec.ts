@@ -162,6 +162,16 @@ describe('ReviewsService - nada se publica sin moderar', () => {
     });
   });
 
+  it('las destacadas del home tambien son solo APPROVED', async () => {
+    const prisma = crearPrisma();
+    await crearServicio(prisma).findFeatured();
+
+    expect(prisma.review.findMany.mock.calls[0][0].where).toEqual({
+      status: ReviewStatus.APPROVED,
+      rating: { gte: 4 },
+    });
+  });
+
   it('usa el correo sin dominio si el cliente no tiene nombre', async () => {
     const prisma = crearPrisma();
     prisma.order.findFirst.mockResolvedValue({ id: 'o-1' });
