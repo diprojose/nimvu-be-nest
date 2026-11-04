@@ -90,6 +90,15 @@ export class WompiService {
       `Processing transaction ${id} with status ${status} for reference ${reference}`,
     );
 
+    // El motivo del rechazo solo viaja en el webhook: Wompi ya no deja
+    // consultar transacciones con la llave publica. Se deja en el log para
+    // poder responder "por que no pudo pagar" sin entrar al panel de Wompi.
+    if (status !== 'APPROVED') {
+      this.logger.warn(
+        `Pago no aprobado ${id}: ${status} via ${transaction.payment_method_type ?? '?'} - ${transaction.status_message ?? 'sin mensaje'}`,
+      );
+    }
+
     // reference = Order ID (UUID) — el store lo envía como reference al crear el widget
     const order = await this.prisma.order.findUnique({
       where: { id: reference },

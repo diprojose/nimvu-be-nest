@@ -499,6 +499,29 @@ export class OrdersService {
     });
   }
 
+  /**
+   * Estado del pago para la pagina de regreso de Wompi. Se reduce a tres
+   * valores para no exponer el flujo interno (PACKED, SHIPPED...):
+   * - `approved`: el webhook ya confirmo el pago (o la orden avanzo despues).
+   * - `declined`: el pago fue rechazado y la orden se cancelo.
+   * - `pending`: el webhook todavia no llega (PSE y Nequi pueden tardar).
+   */
+  async paymentStatus(id: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id },
+      select: { status: true, total: true },
+    });
+    if (!order) return null;
+
+    const status =
+      order.status === OrderStatus.PENDING
+        ? 'pending'
+        : order.status === OrderStatus.CANCELLED
+          ? 'declined'
+          : 'approved';
+    return { status, total: order.total };
+  }
+
   async update(id: string, updateOrderDto: UpdateOrderDto) {
     const previous = await this.prisma.order.findUnique({
       where: { id },

@@ -9,6 +9,7 @@ import {
   UseGuards,
   Request,
   NotFoundException,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto, CreateGuestOrderDto } from './dto/create-order.dto';
@@ -49,6 +50,17 @@ export class OrdersController {
       return this.ordersService.findAll();
     }
     return this.ordersService.findAll(user.userId);
+  }
+
+  // Publico a proposito: la pagina de regreso de Wompi lo consulta tambien
+  // para invitados, que no tienen token. Solo devuelve el estado del pago, nada
+  // del cliente, y el id es un UUID que solo conoce quien creo la orden.
+  // Declarado antes de `@Get(':id')` para que Nest no lo capture como id.
+  @Get(':id/payment-status')
+  async paymentStatus(@Param('id', new ParseUUIDPipe()) id: string) {
+    const status = await this.ordersService.paymentStatus(id);
+    if (!status) throw new NotFoundException('Orden no encontrada');
+    return status;
   }
 
   @UseGuards(AuthGuard('jwt'))
