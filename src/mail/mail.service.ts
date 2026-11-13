@@ -9,6 +9,22 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   MERCADO_LIBRE: 'Mercado Libre',
 };
 
+/**
+ * Frase de un producto personalizable, para la fila del item en los correos.
+ * Se escapa aunque la orden ya rechace `<` y `>`: es texto escrito por el
+ * cliente y va dentro de HTML.
+ */
+const customTextHtml = (item: { customText?: string | null }): string => {
+  if (!item.customText) return '';
+  const safe = item.customText
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/\n/g, ' / ');
+  return `<br/><span style="font-size:12px;color:#666;">Frase: “${safe}.”</span>`;
+};
+
 @Injectable()
 export class MailService {
   constructor(private mailerService: MailerService) {}
@@ -90,7 +106,7 @@ export class MailService {
           <tr>
             <td style="padding:12px 8px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:12px;">
               <img src="${imageUrl}" alt="${productName}" style="width:60px;height:60px;object-fit:cover;border-radius:4px;"/>
-              <span>${productName}${variantName}</span>
+              <span>${productName}${variantName}${customTextHtml(item)}</span>
             </td>
             <td style="padding:12px 8px;border-bottom:1px solid #eee;text-align:center;">${item.quantity}</td>
             <td style="padding:12px 8px;border-bottom:1px solid #eee;text-align:right;">$${item.price.toLocaleString('es-CO')}</td>
@@ -234,7 +250,7 @@ export class MailService {
             <td style="padding:10px 8px;border-bottom:1px solid #eee;">
               <div style="display:flex;align-items:center;gap:10px;">
                 <img src="${imageUrl}" alt="${productName}" style="width:50px;height:50px;object-fit:cover;border-radius:4px;"/>
-                <span style="font-size:14px;">${productName}${variantName} x${item.quantity}</span>
+                <span style="font-size:14px;">${productName}${variantName} x${item.quantity}${customTextHtml(item)}</span>
               </div>
             </td>
             <td style="padding:10px 8px;border-bottom:1px solid #eee;text-align:right;font-weight:bold;">
@@ -362,7 +378,7 @@ export class MailService {
           <tr>
             <td style="padding:12px 8px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:12px;">
               <img src="${imageUrl}" alt="${productName}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;"/>
-              <span>${productName}${variantName}</span>
+              <span>${productName}${variantName}${customTextHtml(item)}</span>
             </td>
             <td style="padding:12px 8px;border-bottom:1px solid #eee;text-align:center;">${item.quantity}</td>
             <td style="padding:12px 8px;border-bottom:1px solid #eee;text-align:right;">$${item.price.toLocaleString('es-CO')}</td>

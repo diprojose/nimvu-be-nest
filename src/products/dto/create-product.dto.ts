@@ -98,6 +98,11 @@ export class CreateProductDto {
   @IsOptional()
   isActive?: boolean;
 
+  /** El cliente escribe su propia frase al comprarlo (tote personalizable). */
+  @IsBoolean()
+  @IsOptional()
+  isCustomizable?: boolean;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateVariantDto)

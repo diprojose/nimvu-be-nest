@@ -13,6 +13,7 @@ import { ShippingService } from '../shipping/shipping.service';
 import { DiscountsService } from '../discounts/discounts.service';
 import { ReviewTokenService } from '../reviews/review-token.service';
 import { OrderStatus } from '@prisma/client';
+import { parseCustomText } from './custom-text';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -301,6 +302,7 @@ export class OrdersService {
         price: number;
         variantId?: string;
         variantName?: string;
+        customText?: string;
       }[] = [];
       // 2. Validate Items & Calculate Total
       for (const item of createOrderDto.items) {
@@ -316,6 +318,13 @@ export class OrdersService {
         }
 
         let price = product.price;
+
+        // La frase solo existe en productos personalizables: ahi es
+        // obligatoria, y en cualquier otro se descarta aunque el cliente la
+        // mande. Se valida antes de tocar el stock.
+        const customText = product.isCustomizable
+          ? parseCustomText(item.customText, product.name)
+          : undefined;
 
         // Handle Variant Logic
         if (item.variantId) {
@@ -389,6 +398,7 @@ export class OrdersService {
           productId: item.productId,
           variantId: item.variantId,
           variantName,
+          customText,
           quantity: item.quantity,
           price: price,
         });

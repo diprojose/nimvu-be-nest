@@ -117,6 +117,10 @@ model Product {
   updatedAt       DateTime       @updatedAt
   isB2BOnly       Boolean        @default(false)
   isActive        Boolean        @default(true)
+  /// El cliente escribe su propia frase (hoy: el tote bag personalizable).
+  /// Con esto en true la orden exige `customText` en el item y la tienda
+  /// muestra el personalizador en vez de la compra rapida.
+  isCustomizable  Boolean        @default(false)
   slug            String?        @unique
   variants        Variant[]
   orderItems      OrderItem[]
@@ -248,6 +252,10 @@ model OrderItem {
   orderId     String
   variantId   String?
   variantName String?
+  /// Frase que el cliente escribio para un producto personalizable, ya
+  /// normalizada (ver orders/custom-text.ts). Es lo que se estampa: el admin
+  /// genera el arte a partir de este texto. `null` en productos normales.
+  customText  String?
   quantity    Int
   price       Float
   product     Product  @relation(fields: [productId], references: [id])

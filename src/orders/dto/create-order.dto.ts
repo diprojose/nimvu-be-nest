@@ -11,6 +11,7 @@ import {
   IsBoolean,
   IsEnum,
   ArrayMinSize,
+  MaxLength,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { PaymentMethod } from '@prisma/client';
@@ -37,6 +38,16 @@ class OrderItemDto {
   @IsNumber()
   @Min(1)
   quantity: number;
+
+  /**
+   * Frase para productos personalizables. Aqui solo se acota el tamano; si el
+   * producto la exige y si los caracteres se pueden estampar lo decide el
+   * servicio, que es quien sabe si el producto es personalizable.
+   */
+  @IsString()
+  @MaxLength(200)
+  @IsOptional()
+  customText?: string;
 }
 
 /**
