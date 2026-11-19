@@ -7,12 +7,13 @@ import {
 import { CreateOrderDto, CreateGuestOrderDto } from './dto/create-order.dto';
 import { CreateManualOrderDto } from './dto/create-manual-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
+import { EditOrderDetailsDto } from './dto/edit-order-details.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
 import { ShippingService } from '../shipping/shipping.service';
 import { DiscountsService } from '../discounts/discounts.service';
 import { ReviewTokenService } from '../reviews/review-token.service';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, Prisma } from '@prisma/client';
 import { parseCustomText } from './custom-text';
 import * as bcrypt from 'bcrypt';
 
@@ -588,6 +589,115 @@ export class OrdersService {
     }
 
     return updated;
+  }
+
+  /**
+   * Cambios que pide el cliente después de comprar: otro color u otra
+   * dirección de entrega. Es una corrección interna del admin, así que a
+   * propósito NO envía correos ni cambia el estado de la orden.
+   *
+   * - Cambiar de variante mueve el inventario: devuelve la unidad a la variante
+   *   anterior y la descuenta de la nueva. El precio cobrado no se toca, el
+   *   cliente ya pagó.
+   * - La nota de cada línea guarda lo que no es una variante (la mayoría de
+   *   productos no tiene colores como variantes).
+   * - Si cambia la dirección y la etiqueta ya estaba impresa, se marca como
+   *   pendiente otra vez: la impresa lleva la dirección vieja.
+   */
+  async editDetails(id: string, dto: EditOrderDetailsDto) {
+    return this.prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUnique({
+        where: { id },
+        select: {
+          status: true,
+          shippingAddress: true,
+          labelPrintedAt: true,
+          items: { select: { id: true, productId: true, variantId: true, quantity: true } },
+        },
+      });
+      if (!order) throw new NotFoundException('Orden no encontrada');
+      // Una orden cancelada pudo haber devuelto su inventario (el webhook lo
+      // hace, la cancelación manual no), así que mover stock aquí sería adivinar.
+      if (order.status === OrderStatus.CANCELLED) {
+        throw new BadRequestException('No se puede editar una orden cancelada.');
+      }
+
+      for (const change of dto.items ?? []) {
+        const item = order.items.find((i) => i.id === change.id);
+        if (!item) {
+          throw new BadRequestException('Uno de los productos no pertenece a esta orden.');
+        }
+
+        const data: { variantId?: string; variantName?: string; note?: string | null } = {};
+
+        if (change.variantId && change.variantId !== item.variantId) {
+          const variant = await tx.variant.findUnique({
+            where: { id: change.variantId },
+            select: { productId: true, name: true },
+          });
+          if (!variant || variant.productId !== item.productId) {
+            throw new BadRequestException('Esa variante no es de este producto.');
+          }
+          if (item.variantId) {
+            await tx.variant.update({
+              where: { id: item.variantId },
+              data: { stock: { increment: item.quantity } },
+            });
+          } else {
+            await tx.product.update({
+              where: { id: item.productId },
+              data: { stock: { increment: item.quantity } },
+            });
+          }
+          await tx.variant.update({
+            where: { id: change.variantId },
+            data: { stock: { decrement: item.quantity } },
+          });
+          data.variantId = change.variantId;
+          data.variantName = variant.name;
+        }
+
+        if (change.note !== undefined) {
+          data.note = change.note.trim() || null;
+        }
+
+        if (Object.keys(data).length) {
+          await tx.orderItem.update({ where: { id: item.id }, data });
+        }
+      }
+
+      const orderData: { shippingAddress?: Prisma.InputJsonValue; labelPrintedAt?: null } = {};
+      if (dto.shippingAddress) {
+        // Algunas órdenes viejas guardaron la dirección como texto JSON.
+        const raw = order.shippingAddress;
+        const parsed: unknown = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        const previous = (parsed && typeof parsed === 'object' ? parsed : {}) as Record<string, unknown>;
+        const next: Record<string, unknown> = { ...previous };
+        for (const [key, value] of Object.entries(dto.shippingAddress)) {
+          if (value === undefined) continue;
+          const clean = value.trim();
+          if (clean) next[key] = clean;
+          else delete next[key];
+        }
+        const changed = Object.keys(dto.shippingAddress).some(
+          (key) => (previous[key] ?? '') !== (next[key] ?? ''),
+        );
+        if (changed) {
+          orderData.shippingAddress = next as Prisma.InputJsonValue;
+          if (order.labelPrintedAt) orderData.labelPrintedAt = null;
+        }
+      }
+
+      return tx.order.update({
+        where: { id },
+        data: orderData,
+        include: {
+          items: { include: { product: true, variant: true } },
+          user: { select: { id: true, email: true, name: true, taxId: true } },
+          postSaleCases: { include: { items: true } },
+        },
+      });
+    });
   }
 
   /**

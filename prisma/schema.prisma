@@ -256,6 +256,10 @@ model OrderItem {
   /// normalizada (ver orders/custom-text.ts). Es lo que se estampa: el admin
   /// genera el arte a partir de este texto. `null` en productos normales.
   customText  String?
+  /// Lo que se acordó con el cliente después de la compra y no cabe en una
+  /// variante: casi siempre el color ("lo quiere en azul"), porque la mayoría
+  /// de productos no tiene variantes de color. Solo lo escribe el admin.
+  note        String?
   quantity    Int
   price       Float
   product     Product  @relation(fields: [productId], references: [id])

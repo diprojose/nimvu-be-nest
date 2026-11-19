@@ -15,6 +15,7 @@ import { OrdersService } from './orders.service';
 import { CreateOrderDto, CreateGuestOrderDto } from './dto/create-order.dto';
 import { CreateManualOrderDto } from './dto/create-manual-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
+import { EditOrderDetailsDto } from './dto/edit-order-details.dto';
 import { MarkLabelsPrintedDto } from './dto/mark-labels-printed.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { AdminOnly } from '../auth/admin-only.decorator';
@@ -82,6 +83,18 @@ export class OrdersController {
   @Patch('labels/printed')
   markLabelsPrinted(@Body() dto: MarkLabelsPrintedDto) {
     return this.ordersService.markLabelsPrinted(dto.orderIds, dto.printed ?? true);
+  }
+
+  // Color y dirección que el cliente cambia después de comprar. Ruta aparte de
+  // `PATCH :id` porque esa dispara correos según el estado; esta nunca escribe
+  // al cliente.
+  @AdminOnly()
+  @Patch(':id/details')
+  editDetails(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: EditOrderDetailsDto,
+  ) {
+    return this.ordersService.editDetails(id, dto);
   }
 
   @AdminOnly()
